@@ -245,8 +245,6 @@ body{font-family:'Barlow','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,
 .sync-status{display:flex;align-items:center;gap:3px;min-width:60px}
 .user-chip{font-size:11px;color:rgba(255,255,255,.8);cursor:pointer;padding:5px 11px;border-radius:20px;border:1px solid rgba(255,255,255,.25);white-space:nowrap;background:rgba(255,255,255,.08)}
 .user-chip:hover{background:rgba(255,255,255,.18)}
-.admin-tools{display:none;align-items:center;gap:6px}
-.admin-tools.unlocked{display:flex}
 .banner{display:none;padding:9px 20px;font-size:12px;font-weight:600;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:2px solid}
 .banner-update{background:#4a9a20;border-color:#3a7a18;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 
@@ -270,10 +268,8 @@ input, select, textarea, button {
         <div class="sync-status" id="sync-status"></div>
         <span class="user-chip" id="user-chip" onclick="promptChangeName()" title="Click to change your name">&#128100; ...</span>
       </div>
-      <div class="admin-tools" id="admin-tools" aria-hidden="true">
-        <button class="hbtn" onclick="downloadBackup()" title="Download JSON backup">&#128190; Backup</button>
-        <button class="hbtn" onclick="openRestoreDialog()" title="Restore from backup">&#128257; Restore</button>
-      </div>
+      <button class="hbtn" onclick="downloadBackup()" title="Download JSON backup">&#128190; Backup</button>
+      <button class="hbtn" onclick="openRestoreDialog()" title="Restore from backup">&#128257; Restore</button>
       <button class="hbtn" onclick="openReport()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35)">&#128462; Report</button>
       <button class="hbtn p" onclick="openAddTab()">+ Add PM Tab</button>
     </div>
@@ -359,12 +355,12 @@ input, select, textarea, button {
 // Pure fetch() calls. No SDK. No eval(). Works everywhere.
 // ═══════════════════════════════════════════════════════════════════
 
-var APP_VERSION = 'v12.1 — STAGING — tasktracker_staging/state';
-var BUILD_DATE  = '2026-05-08';
+var APP_VERSION = 'v10.0';
+var BUILD_DATE  = '2026-05-06';
 var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
 var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
-var DATA_NODE   = 'tasktracker_staging/state';
-var STREAM_NODE = 'tasktracker_staging/state';
+var DATA_NODE   = 'tasktracker/state';
+var STREAM_NODE = 'tasktracker/state';
 
 var LOCAL_KEY  = 'gi-tt-local-v3';
 var USER_KEY   = 'gi-tt-username';
@@ -379,11 +375,6 @@ var saveIndTimer     = null;
 var streamSource     = null;  // EventSource for real-time updates
 var ignoreNextStream = false;
 var appReady         = false;
-
-var adminToolsUnlocked = false;
-var adminClickCount    = 0;
-var adminClickTimer    = null;
-var ADMIN_UNLOCK_CODE  = 'KYLE-RESTORE';
 
 // ── FIREBASE REST HELPERS ──────────────────────────────────────────
 function fbUrl(node) {
@@ -503,14 +494,7 @@ function updateUserChip() {
   var el = document.getElementById('user-chip');
   if (el) el.textContent = '\u{1F464} ' + (currentUser || 'Anonymous');
   var ver = document.getElementById('app-ver');
-  if (ver) {
-    ver.textContent = APP_VERSION;
-    if (!ver.getAttribute('data-admin-bound')) {
-      ver.setAttribute('data-admin-bound', '1');
-      ver.addEventListener('click', handleAdminUnlockClick);
-    }
-  }
-  applyAdminToolVisibility();
+  if (ver) ver.textContent = APP_VERSION;
 }
 function promptChangeName() {
   var name = prompt('Your display name (shown in change log):', currentUser);
@@ -634,136 +618,6 @@ function applyRemoteState(remote) {
 }
 
 // ── PERSIST ────────────────────────────────────────────────────────
-
-// ── REAL-TIME MERGE HELPERS ───────────────────────────────────────
-function mergeStates(local, remote) {
-  if (!remote || !remote.tabs) return local;
-
-  var TASK_FIELDS = ['customer','notes','owner','support','status','due',
-                     'priority','milestone','meetingNotes'];
-  var now = new Date().toISOString();
-  var merged = JSON.parse(JSON.stringify(local || {})); // deep clone local
-
-  // Helper: support both v11-style {ts, field/fields} and v10-style {t, msg}
-  function entryTime(entry) {
-    return new Date(entry.ts || entry.t || 0).getTime() || 0;
-  }
-
-  function taskLastChangedAt(task) {
-    if (!task || !task.changelog || !task.changelog.length) return 0;
-    var latest = 0;
-    task.changelog.forEach(function(entry) {
-      latest = Math.max(latest, entryTime(entry));
-    });
-    return latest;
-  }
-
-  function lastChangedAt(task, field) {
-    if (!task || !task.changelog || !task.changelog.length) return 0;
-    var latestForField = 0;
-    for (var i = task.changelog.length - 1; i >= 0; i--) {
-      var entry = task.changelog[i];
-      if (entry.field === field || (entry.fields && entry.fields.indexOf(field) > -1)) {
-        latestForField = Math.max(latestForField, entryTime(entry));
-      }
-    }
-    // Existing v10 data usually has task-level changelog entries without fields.
-    // Use task-level latest timestamp as a safe fallback so remote updates can still merge.
-    return latestForField || taskLastChangedAt(task);
-  }
-
-  function buildIndex(tasksObj) {
-    var idx = {};
-    Object.keys(tasksObj || {}).forEach(function(tab) {
-      Object.keys(tasksObj[tab] || {}).forEach(function(bucket) {
-        (tasksObj[tab][bucket] || []).forEach(function(t) {
-          if (t.id) idx[t.id] = { task: t, bucket: bucket, tab: tab };
-        });
-      });
-    });
-    return idx;
-  }
-
-  if (!merged.tasks) merged.tasks = {};
-  var localIdx  = buildIndex(local && local.tasks);
-  var remoteIdx = buildIndex(remote.tasks);
-
-  Object.keys(remoteIdx).forEach(function(id) {
-    var rem = remoteIdx[id];
-    var loc = localIdx[id];
-
-    if (!loc) {
-      var tab    = rem.tab;
-      var bucket = rem.bucket;
-      if (!merged.tasks[tab]) merged.tasks[tab] = {};
-      if (!merged.tasks[tab][bucket]) merged.tasks[tab][bucket] = [];
-      merged.tasks[tab][bucket].push(JSON.parse(JSON.stringify(rem.task)));
-      return;
-    }
-
-    var localTask  = loc.task;
-    var remoteTask = rem.task;
-    var conflictFields = [];
-
-    TASK_FIELDS.forEach(function(field) {
-      var localVal  = localTask[field];
-      var remoteVal = remoteTask[field];
-      if (localVal === remoteVal) return;
-
-      var localTs  = lastChangedAt(localTask, field);
-      var remoteTs = lastChangedAt(remoteTask, field);
-
-      if (remoteTs > localTs) {
-        localTask[field] = remoteVal;
-        conflictFields.push(field);
-      }
-    });
-
-    if (conflictFields.length) {
-      localTask.conflict = true;
-      localTask.conflictFields = conflictFields;
-      if (!localTask.changelog) localTask.changelog = [];
-      localTask.changelog.push({
-        t: now,
-        ts: now,
-        by: 'System',
-        fields: conflictFields,
-        msg: '⚠ Merge: remote update applied to ' + conflictFields.join(', '),
-        note: '⚠ Merge: remote update applied to ' + conflictFields.join(', ')
-      });
-    }
-  });
-
-  Object.keys(localIdx).forEach(function(id) {
-    if (!remoteIdx[id]) {
-      var loc = localIdx[id];
-      var localTask = loc.task;
-      localTask.conflict = true;
-      localTask.conflictFields = localTask.conflictFields || [];
-      if (!localTask.changelog) localTask.changelog = [];
-      localTask.changelog.push({
-        t: now,
-        ts: now,
-        by: 'System',
-        msg: '⚠ Conflict: this task was deleted remotely but has been restored. Review and delete manually if intended.',
-        note: '⚠ Conflict: this task was deleted remotely but has been restored. Review and delete manually if intended.'
-      });
-    }
-  });
-
-  merged.tabs       = remote.tabs;
-  merged.tabCols    = remote.tabCols    || merged.tabCols || {};
-  merged.tabBuckets = remote.tabBuckets || merged.tabBuckets || {};
-  merged.timestamps = remote.timestamps || merged.timestamps || {};
-  merged.tabHistory = remote.tabHistory || merged.tabHistory || [];
-  merged.v          = remote.v;
-
-  if (!merged.activeTab || merged.tabs.indexOf(merged.activeTab) === -1)
-    merged.activeTab = merged.tabs[0];
-
-  return merged;
-}
-
 function persist() {
   state.timestamps[state.activeTab] = nowTs();
   cacheSave(serializeState());
@@ -822,27 +676,13 @@ function showUpdateBanner(remoteData) {
 }
 function acceptUpdate() {
   if (window._pendingRemote) {
-    var merged = mergeStates(state, window._pendingRemote);
-    state = merged;
-    localVersion = merged.v || localVersion;
-    cloudVersion = localVersion;
-    cacheSave(serializeState());
+    var currentTab = state.activeTab; // remember where user is
+    applyRemoteState(window._pendingRemote);
+    state.activeTab = currentTab; // stay on same tab
+    cacheSave(window._pendingRemote);
     dismissUpdate();
     renderApp();
-    // Count any conflict-flagged tasks to inform the user
-    var conflicts = 0;
-    Object.keys(state.tasks || {}).forEach(function(tab) {
-      Object.keys(state.tasks[tab] || {}).forEach(function(bucket) {
-        (state.tasks[tab][bucket] || []).forEach(function(t) {
-          if (t.conflict) conflicts++;
-        });
-      });
-    });
-    if (conflicts > 0) {
-      showToast('Updates merged. ' + conflicts + ' task(s) had conflicts — look for ⚠ badges.');
-    } else {
-      showToast('Updates merged successfully.');
-    }
+    showToast('Loaded latest updates.');
   }
 }
 function dismissUpdate() {
@@ -851,45 +691,8 @@ function dismissUpdate() {
   if (window._pendingRemote) localVersion = window._pendingRemote.v;
 }
 
-// ── HIDDEN ADMIN TOOLS ─────────────────────────────────────────────
-function isAdminUser() {
-  return /^kyle( harmer)?$/i.test((currentUser || '').trim());
-}
-function applyAdminToolVisibility() {
-  var el = document.getElementById('admin-tools');
-  if (!el) return;
-  var show = adminToolsUnlocked && isAdminUser();
-  el.classList.toggle('unlocked', show);
-  el.setAttribute('aria-hidden', show ? 'false' : 'true');
-}
-function handleAdminUnlockClick() {
-  adminClickCount++;
-  clearTimeout(adminClickTimer);
-  adminClickTimer = setTimeout(function(){ adminClickCount = 0; }, 2500);
-  if (adminClickCount < 5) return;
-  adminClickCount = 0;
-  if (!isAdminUser()) {
-    showToast('Admin tools are restricted.');
-    return;
-  }
-  var code = prompt('Admin unlock code:');
-  if (code === ADMIN_UNLOCK_CODE) {
-    adminToolsUnlocked = true;
-    applyAdminToolVisibility();
-    showToast('Admin tools unlocked for this session.');
-  } else if (code !== null) {
-    showToast('Incorrect admin code.');
-  }
-}
-function requireAdminTools() {
-  if (adminToolsUnlocked && isAdminUser()) return true;
-  showToast('Backup / Restore tools are locked.');
-  return false;
-}
-
 // ── BACKUP / RESTORE ───────────────────────────────────────────────
 function downloadBackup() {
-  if (!requireAdminTools()) return;
   var payload = serializeState();
   payload.backupDate = new Date().toISOString();
   var json = JSON.stringify(payload, null, 2);
@@ -901,9 +704,7 @@ function downloadBackup() {
   showToast('Backup downloaded.');
 }
 function openRestoreDialog() {
-  if (!requireAdminTools()) return;
   if (!confirm('Restore from a backup? This overwrites ALL current data for the entire team.')) return;
-  if (!confirm('FINAL CHECK: this will replace the shared task tracker data for everyone. Continue?')) return;
   var inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.json';
   inp.onchange = function(e) {
@@ -1494,7 +1295,7 @@ function renderApp(){
         cols.forEach(function(c){
           if(c.key==='owner'||c.key==='support')return;
           h+='<td>';
-          if(c.key==='customer')h+='<div class="cust-name">'+(t.conflict?'<span title="Merged update needs review" style="color:#b45309;font-weight:800;margin-right:5px">⚠</span>':'')+esc(t.customer||'—')+'</div>';
+          if(c.key==='customer')h+='<div class="cust-name">'+esc(t.customer||'—')+'</div>';
           else if(c.key==='due')h+=dueBadgeWithCountdown(t.due,t.status);
           else if(c.key==='status')h+=statusPill(t.status);
           else if(c.key==='priority')h+=priTag(t.priority);
@@ -1649,26 +1450,14 @@ function saveTask(){
   var tab=state.activeTab,cols=getTabCols(tab),isNew=!editingTask;
   var existing=null;
   if(!isNew){var a0=(state.tasks[tab][editingBucket]||[]);for(var i=0;i<a0.length;i++){if(a0[i].id===editingTask){existing=a0[i];break;}}}
-  var createdAt=nowTs();
-  var task={id:editingTask||uid(),changelog:existing?(existing.changelog||[]):[{t:createdAt,ts:createdAt,msg:(currentUser?currentUser+' created task':'Task created') }],completedAt:existing?existing.completedAt:null};
-  // Saving a task resolves any prior sync conflict flags for that task.
-  var changes=[], changedFields=[];
+  var task={id:editingTask||uid(),changelog:existing?(existing.changelog||[]):[{t:nowTs(),msg:(currentUser?currentUser+' created task':'Task created')}],completedAt:existing?existing.completedAt:null};
+  var changes=[];
   cols.forEach(function(c){
     if(!c.visible)return;
     var el=document.getElementById('tf_'+c.key);
-    if(el){
-      var nv=el.value.trim();
-      task[c.key]=nv;
-      if(!isNew&&existing&&String(existing[c.key]||'')!==nv){
-        changes.push(c.label+' updated');
-        changedFields.push(c.key);
-      }
-    }
+    if(el){var nv=el.value.trim();task[c.key]=nv;if(!isNew&&existing&&String(existing[c.key]||'')!==nv)changes.push(c.label+' updated');}
   });
-  if(!isNew&&changes.length){
-    var changedAt=nowTs();
-    task.changelog.push({t:changedAt,ts:changedAt,fields:changedFields,msg:(currentUser?currentUser+': ':'')+changes.join(', ')});
-  }
+  if(!isNew&&changes.length)task.changelog.push({t:nowTs(),msg:(currentUser?currentUser+': ':'')+changes.join(', ')});
   // Track when task was completed
   if(task.status==='Complete'&&(!existing||existing.status!=='Complete')){
     task.completedAt=nowTs();

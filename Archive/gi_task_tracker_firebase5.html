@@ -1,0 +1,2070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>General Inspection — Task Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gig:#2a5c14;--gig-mid:#3a7d1e;--gig-light:#e8f5e0;--gig-xlight:#f4faf0;
+  --bg:#f2f4f0;--surf:#fff;--surf2:#f8faf6;--bdr:#dde0d8;--bdr2:#b8bdb0;
+  --tx:#1a1e17;--txm:#6b7263;--txl:#9aa392;
+  --red:#b93328;--red-bg:#fdf0ef;--red-bdr:#f5c0bb;
+  --ylw:#8a6200;--ylw-bg:#fffbec;--ylw-bdr:#edd98a;
+  --grn:#1a6b2a;--grn-bg:#edf7f0;--grn-bdr:#a8d9b4;
+  --blue:#1a4fbf;--blue-bg:#e8f1ff;
+  --r:8px;--rl:12px;
+}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;font-size:14px}
+.hdr{background:linear-gradient(135deg,#1a3a0a 0%,#2a5c14 45%,#3a7d1e 100%);position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.hdr-inner{display:flex;align-items:center;gap:16px;padding:8px 20px}
+.hdr-logo{height:42px;width:auto}
+.hdr-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;opacity:.9;flex:1}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.leg{display:flex;gap:12px;align-items:center;font-size:11px;color:rgba(255,255,255,.7)}
+.leg-i{display:flex;align-items:center;gap:4px}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.hbtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 14px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.hbtn:hover{background:rgba(255,255,255,.25)}
+.hbtn.p{background:rgba(255,255,255,.9);color:var(--gig)}
+.hbtn.p:hover{background:#fff}
+.lbtn{background:var(--gig-light);border:1px solid var(--gig);color:var(--gig);padding:6px 14px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.lbtn:hover{background:#d4edbe}
+.lbtn.grey{background:#f0f2ee;border:1px solid var(--bdr2);color:var(--txm)}
+.lbtn.grey:hover{background:#e4e8e0}
+.tabs-bar{background:#1a3a0a;padding:0 20px;display:flex;gap:2px;align-items:flex-end;overflow-x:auto;scrollbar-width:none}
+.tabs-bar::-webkit-scrollbar{display:none}
+.tab-btn{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:8px 16px;border:none;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;border-radius:5px 5px 0 0;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+.tab-btn.active{background:var(--bg);color:var(--gig)}
+.tab-btn.dtab{color:rgba(255,200,50,.7)}
+.tab-btn.dtab.active{color:#8a6200}
+.tab-btn.mytab{color:rgba(150,220,255,.8)}
+.tab-btn.mytab.active{color:#1a4fbf}
+.add-tab-btn{background:transparent;border:none;color:rgba(255,255,255,.35);font-size:18px;padding:8px 10px;cursor:pointer;transition:color .15s;margin-bottom:2px;line-height:1}
+.add-tab-btn:hover{color:rgba(255,255,255,.75)}
+.main{padding:20px;max-width:1700px;margin:0 auto}
+.tab-hdr-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);flex-wrap:wrap}
+.tab-hdr-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--gig);letter-spacing:.03em;text-transform:uppercase}
+.tab-hdr-meta{font-size:11px;color:var(--txm);margin-top:1px}
+.tab-hdr-meta b{color:var(--tx)}
+.tab-hdr-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px}
+.stat-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txm);margin-bottom:3px}
+.stat-val{font-size:24px;font-weight:700;font-family:'Barlow Condensed',sans-serif}
+.stat-card.danger .stat-val{color:var(--red)}
+.stat-card.warning .stat-val{color:var(--ylw)}
+.stat-card.success .stat-val{color:var(--grn)}
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+.search-inp{font-family:'Barlow',sans-serif;font-size:13px;border:1px solid var(--bdr);border-radius:var(--r);padding:6px 10px;background:var(--surf);color:var(--tx);flex:1;min-width:160px;max-width:260px}
+.search-inp:focus{outline:none;border-color:var(--gig-mid)}
+.flt-sel{font-family:'Barlow',sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:var(--r);padding:6px 8px;background:var(--surf);color:var(--txm);cursor:pointer}
+.bucket-section{margin-bottom:22px}
+.bucket-hdr{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--gig);color:#fff;border-radius:var(--r) var(--r) 0 0;cursor:pointer;user-select:none}
+.bucket-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.bucket-count{background:rgba(255,255,255,.2);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600}
+.bucket-spacer{flex:1}
+.bucket-hdr-btns{display:flex;gap:4px}
+.bkt-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Barlow',sans-serif;white-space:nowrap}
+.bkt-btn:hover{background:rgba(255,255,255,.28)}
+.bucket-body{background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 var(--r) var(--r);overflow:hidden}
+.bucket-collapsed .bucket-body{display:none}
+.task-table{width:100%;border-collapse:collapse;font-size:13px}
+.task-table thead tr{background:var(--surf2);border-bottom:1px solid var(--bdr)}
+.task-table th{padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txm);white-space:nowrap;cursor:pointer;user-select:none}
+.task-table th:hover{color:var(--tx)}
+.task-table td{padding:9px 10px;border-bottom:1px solid var(--bdr);vertical-align:top}
+.task-table tbody tr:last-child td{border-bottom:none}
+.task-table tbody tr:hover{background:var(--gig-xlight)}
+.cust-name{font-weight:600}
+.sub-note{color:var(--txm);font-size:11px;margin-top:2px;line-height:1.4}
+.due-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.due-overdue{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bdr)}
+.due-soon{background:var(--ylw-bg);color:var(--ylw);border:1px solid var(--ylw-bdr)}
+.due-ok{background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn-bdr)}
+.due-na{background:#f0f0f0;color:var(--txm);border:1px solid var(--bdr)}
+.status-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.s-ongoing{background:#e8f1ff;color:#1a4fbf}
+.s-complete{background:var(--grn-bg);color:var(--grn)}
+.s-hold{background:#f5f0ff;color:#6b3db5}
+.s-planned{background:#fff8e0;color:#8a6500}
+.s-delayed{background:var(--red-bg);color:var(--red)}
+.s-other{background:#f0f0f0;color:var(--txm)}
+.resp-chip{font-size:11px;font-weight:600;color:var(--gig);background:var(--gig-light);padding:2px 7px;border-radius:4px;display:inline-block}
+/* PRIORITY */
+.pri-high{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#b93328;background:#fdf0ef;border:1px solid #f5c0bb;padding:2px 7px;border-radius:4px}
+.pri-med{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#8a6200;background:#fffbec;border:1px solid #edd98a;padding:2px 7px;border-radius:4px}
+.pri-low{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--txm);background:#f0f0f0;border:1px solid var(--bdr);padding:2px 7px;border-radius:4px}
+.pri-none{display:inline-flex;align-items:center;font-size:11px;color:var(--txl);padding:2px 7px}
+/* CHANGE LOG */
+.changelog{margin-top:6px;border-top:1px solid var(--bdr);padding-top:6px}
+.changelog-entry{font-size:11px;color:var(--txm);padding:2px 0;display:flex;gap:6px}
+.changelog-time{color:var(--txl);white-space:nowrap;flex-shrink:0}
+.row-acts{display:flex;gap:3px;opacity:0;transition:opacity .1s}
+.task-table tbody tr:hover .row-acts{opacity:1}
+.icon-btn{background:none;border:1px solid var(--bdr);border-radius:4px;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--txm)}
+.icon-btn:hover{background:var(--surf2);border-color:var(--bdr2);color:var(--tx)}
+.icon-btn.del:hover{background:var(--red-bg);border-color:var(--red-bdr);color:var(--red)}
+.empty-state{padding:24px;text-align:center;color:var(--txl);font-size:13px}
+/* AUTOCOMPLETE */
+.ac-wrap{position:relative}
+.ac-list{position:absolute;top:100%;left:0;right:0;background:var(--surf);border:1px solid var(--bdr2);border-radius:0 0 var(--r) var(--r);z-index:300;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.ac-item{padding:7px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--bdr)}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover,.ac-item.active{background:var(--gig-light);color:var(--gig)}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surf);border-radius:var(--rl);padding:24px;width:100%;max-width:620px;box-shadow:0 8px 32px rgba(0,0,0,.15);margin:auto}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--gig);margin-bottom:18px;text-transform:uppercase;letter-spacing:.05em}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid .full{grid-column:1/-1}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)}
+.form-input,.form-select,.form-textarea{font-family:'Barlow',sans-serif;font-size:13px;border:1px solid var(--bdr);border-radius:var(--r);padding:7px 9px;background:var(--surf);color:var(--tx);width:100%}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--gig-mid);box-shadow:0 0 0 2px rgba(58,125,30,.1)}
+.form-textarea{resize:vertical;min-height:70px}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.btn-cancel{background:none;border:1px solid var(--bdr);color:var(--txm);padding:7px 18px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.btn-save{background:var(--gig);border:1px solid var(--gig);color:#fff;padding:7px 22px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+.btn-save:hover{background:var(--gig-mid)}
+/* CONFIG */
+.config-section{margin-bottom:20px}
+.config-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txm);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)}
+.config-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.config-item{display:flex;align-items:center;gap:8px;background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--r);padding:6px 10px;font-size:13px}
+.config-item-name{flex:1;font-weight:500}
+.config-item-type{font-size:11px;color:var(--txm);background:#f0f0f0;padding:1px 6px;border-radius:3px}
+.config-add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.config-inp{font-family:'Barlow',sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 8px;background:var(--surf);color:var(--tx);flex:1;min-width:100px}
+.config-sel{font-family:'Barlow',sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 7px;background:var(--surf);color:var(--txm)}
+.config-add-btn{background:var(--gig);color:#fff;border:none;padding:5px 14px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;font-family:'Barlow',sans-serif;white-space:nowrap}
+.reset-link{font-size:11px;color:var(--txm);cursor:pointer;text-decoration:underline;margin-top:4px;display:inline-block}
+.reset-link:hover{color:var(--red)}
+/* DASHBOARD */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px}
+.dash-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.dash-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txm);margin-bottom:12px}
+.chart-wrap{position:relative;height:180px}
+.dash-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.dash-stat{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px;text-align:center}
+.dash-stat-val{font-size:28px;font-weight:700;font-family:'Barlow Condensed',sans-serif}
+.dash-stat-lbl{font-size:10px;color:var(--txm);text-transform:uppercase;letter-spacing:.07em;font-weight:600;margin-top:2px}
+.dash-stat.danger .dash-stat-val{color:var(--red)}
+.dash-stat.warning .dash-stat-val{color:var(--ylw)}
+.dash-stat.success .dash-stat-val{color:var(--grn)}
+.dash-filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.dash-table-wrap{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.dash-table{width:100%;border-collapse:collapse;font-size:12px}
+.dash-table thead tr{background:var(--surf2);border-bottom:1px solid var(--bdr)}
+.dash-table th{padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txm);white-space:nowrap}
+.dash-table td{padding:8px 10px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.dash-table tbody tr:last-child td{border-bottom:none}
+.dash-table tbody tr:hover{background:var(--gig-xlight)}
+.pm-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:var(--gig-light);color:var(--gig)}
+/* MY TASKS */
+.my-tasks-header{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.03em;margin-bottom:16px}
+.mytasks-name-bar{display:flex;gap:10px;align-items:center;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px 20px;margin-bottom:16px;flex-wrap:wrap}
+.mytasks-name-bar label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)}
+/* EXPORT BTN */
+.export-btn{background:#f0f2ee;border:1px solid var(--bdr2);color:var(--txm);padding:6px 14px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.export-btn:hover{background:#e4e8e0;color:var(--tx)}
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--gig);color:#fff;padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.2);z-index:999;transform:translateY(70px);opacity:0;transition:all .25s}
+.toast.show{transform:translateY(0);opacity:1}
+/* SORT INDICATOR */
+.sort-asc::after{content:' ▲';font-size:9px}
+.sort-desc::after{content:' ▼';font-size:9px}
+@media(max-width:700px){
+  .hdr-inner{flex-wrap:wrap;padding:8px 12px}
+  .hdr-title{font-size:14px}
+  .leg{display:none}
+  .main{padding:12px}
+  .form-grid{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .dash-stats{grid-template-columns:repeat(2,1fr)}
+  .task-table th:nth-child(n+5),.task-table td:nth-child(n+5){display:none}
+  .tab-btn{font-size:11px;padding:7px 10px}
+  .tab-hdr-card{flex-direction:column;align-items:flex-start}
+  .tab-hdr-actions{margin-left:0;width:100%}
+  .dash-grid{grid-template-columns:1fr}
+  .modal{margin:0;border-radius:var(--rl) var(--rl) 0 0;position:fixed;bottom:0;left:0;right:0;max-width:100%}
+  .modal-overlay{align-items:flex-end;padding:0}
+}
+
+.save-ind{position:fixed;top:10px;right:16px;background:var(--gig);color:#fff;font-size:11px;font-weight:600;padding:4px 14px;border-radius:20px;z-index:400;opacity:0;transition:opacity .5s;pointer-events:none}
+.sync-wrap{display:flex;align-items:center;gap:8px}
+.sync-status{display:flex;align-items:center;gap:3px;min-width:60px}
+.user-chip{font-size:11px;color:rgba(255,255,255,.8);cursor:pointer;padding:5px 11px;border-radius:20px;border:1px solid rgba(255,255,255,.25);white-space:nowrap;background:rgba(255,255,255,.08)}
+.user-chip:hover{background:rgba(255,255,255,.18)}
+.banner{display:none;padding:9px 20px;font-size:12px;font-weight:600;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:2px solid}
+.banner-update{background:#edf7f0;border-color:var(--gig);color:var(--gig)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-inner">
+    <img src="data:image/jpeg;base64,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" alt="General Inspection" class="hdr-logo">
+    <div class="hdr-title">Task Tracker</div>
+    <div class="hdr-right">
+      <div class="sync-wrap">
+        <div class="sync-status" id="sync-status"></div>
+        <span class="user-chip" id="user-chip" onclick="promptChangeName()" title="Click to change your name">&#128100; ...</span>
+      </div>
+      <button class="hbtn" onclick="downloadBackup()" title="Download JSON backup">&#128190; Backup</button>
+      <button class="hbtn" onclick="openRestoreDialog()" title="Restore from backup">&#128257; Restore</button>
+      <button class="hbtn" onclick="openReport()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35)">&#128462; Report</button>
+      <button class="hbtn p" onclick="openAddTab()">+ Add PM Tab</button>
+    </div>
+  </div>
+</div>
+
+<div class="banner banner-update" id="update-banner"></div>
+<div class="tabs-bar" id="tabsBar"></div>
+<div class="main"><div id="appContent"></div></div>
+<div class="save-ind" id="save-ind">Saved</div>
+
+<div class="modal-overlay" id="userModal">
+  <div class="modal" style="max-width:440px"><div id="userModalBody"></div></div>
+</div>
+<div class="modal-overlay" id="taskModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Add Task</div>
+    <div id="taskFormFields"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeModal('taskModal')">Cancel</button>
+      <button class="btn-save" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="tabModal">
+  <div class="modal">
+    <div class="modal-title">Add PM Tab</div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label">PM / Tab Name</label>
+      <input type="text" class="form-input" id="fTabName" placeholder="e.g. Kyle, Favs, Noah..." maxlength="60">
+    </div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeModal('tabModal')">Cancel</button>
+      <button class="btn-save" onclick="saveTab()">Create Tab</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="cfgModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="cfgModalTitle">Configure Tab</div>
+    <div id="cfgModalBody"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeModal('cfgModal')">Done</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="histModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title">Change Log</div>
+    <div id="histModalBody" style="max-height:400px;overflow-y:auto;padding-top:4px"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeModal('histModal')">Close</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="reportModal">
+  <div class="modal" style="max-width:660px;max-height:90vh;overflow-y:auto">
+    <div id="reportModalBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// FIREBASE REALTIME DATABASE — REST API LAYER
+// Pure fetch() calls. No SDK. No eval(). Works everywhere.
+// ═══════════════════════════════════════════════════════════════════
+
+var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
+var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
+var DATA_NODE   = 'tasktracker/state';
+var STREAM_NODE = 'tasktracker/state';
+
+var LOCAL_KEY  = 'gi-tt-local-v3';
+var USER_KEY   = 'gi-tt-username';
+var REPORT_KEY = 'gi-tt-report-defaults';
+var REPORT_STORE = REPORT_KEY;
+
+var currentUser      = '';
+var cloudVersion     = 0;
+var localVersion     = 0;
+var saveDebounce     = null;
+var saveIndTimer     = null;
+var streamSource     = null;  // EventSource for real-time updates
+var ignoreNextStream = false;
+var appReady         = false;
+
+// ── FIREBASE REST HELPERS ──────────────────────────────────────────
+function fbUrl(node) {
+  return FB_DB_URL + '/' + node + '.json?auth=' + FB_API_KEY;
+}
+
+function fbRead() {
+  return fetch(fbUrl(DATA_NODE), { method: 'GET' })
+    .then(function(res) {
+      if (!res.ok) throw new Error('Read failed: HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function(raw) {
+      if (!raw) return null;
+      // Unwrap: if stored as {d: "...", v, ts, savedBy} format, parse the inner string
+      if (raw.d && typeof raw.d === 'string') {
+        try {
+          var inner = JSON.parse(raw.d);
+          inner.v = raw.v || inner.v;
+          inner.ts = raw.ts || inner.ts;
+          inner.savedBy = raw.savedBy || inner.savedBy;
+          return inner;
+        } catch(e) { return raw; }
+      }
+      return raw;
+    });
+}
+
+function fbWrite(data) {
+  // Wrap in {d: "..."} — stores entire state as a single JSON string
+  // This avoids Firebase key restrictions (no . # $ [ ] / in keys)
+  var wrapped = { d: JSON.stringify(data), v: data.v, ts: data.ts, savedBy: data.savedBy };
+  return fetch(fbUrl(DATA_NODE), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(wrapped)
+  }).then(function(res) {
+    if (!res.ok) {
+      return res.text().then(function(t) {
+        throw new Error('Write failed: HTTP ' + res.status + ' — ' + t);
+      });
+    }
+    return res.json();
+  });
+}
+
+// ── REAL-TIME STREAMING (Server-Sent Events) ───────────────────────
+// Firebase REST supports SSE for live updates — no SDK needed
+function attachStream() {
+  if (!window.EventSource) {
+    // Browser doesn't support SSE — fall back to polling every 15s
+    console.log('SSE not supported, using polling');
+    setInterval(pollForUpdates, 15000);
+    return;
+  }
+  if (streamSource) { streamSource.close(); streamSource = null; }
+
+  var url = FB_DB_URL + '/' + STREAM_NODE + '.json'; // no auth needed with open rules
+  try {
+    streamSource = new EventSource(url);
+    streamSource.addEventListener('put', function(e) {
+      if (!appReady) return;
+      if (ignoreNextStream) { ignoreNextStream = false; return; }
+      try {
+        var msg = JSON.parse(e.data);
+        if (!msg || !msg.data) return;
+        var remote = msg.data;
+        // Unwrap if stored in wrapped format
+        if (remote.d && typeof remote.d === 'string') {
+          try {
+            var inner = JSON.parse(remote.d);
+            inner.v = remote.v || inner.v;
+            inner.ts = remote.ts || inner.ts;
+            inner.savedBy = remote.savedBy || inner.savedBy;
+            remote = inner;
+          } catch(e2) {}
+        }
+        if (!remote.tabs) return;
+        if (remote.v <= localVersion) return;
+        showUpdateBanner(remote);
+      } catch(ex) { console.warn('Stream parse error:', ex); }
+    });
+    streamSource.addEventListener('cancel', function() {
+      console.warn('Firebase stream cancelled — reconnecting in 5s');
+      setTimeout(attachStream, 5000);
+    });
+    streamSource.onerror = function() {
+      console.warn('Firebase stream error — reconnecting in 10s');
+      if (streamSource) { streamSource.close(); streamSource = null; }
+      setTimeout(attachStream, 10000);
+    };
+    console.log('Firebase SSE stream attached');
+  } catch(ex) {
+    console.warn('Could not attach stream:', ex);
+    setInterval(pollForUpdates, 15000);
+  }
+}
+
+function pollForUpdates() {
+  if (!appReady || ignoreNextStream) return;
+  fbRead().then(function(remote) {
+    if (!remote || !remote.tabs) return;
+    if (remote.v <= localVersion) return;
+    showUpdateBanner(remote);
+  }).catch(function() {});
+}
+
+// ── USER IDENTITY ──────────────────────────────────────────────────
+function loadUserName() {
+  try { currentUser = localStorage.getItem(USER_KEY) || ''; } catch(e) { currentUser = ''; }
+}
+function saveUserName(name) {
+  currentUser = (name || '').trim();
+  try { localStorage.setItem(USER_KEY, currentUser); } catch(e) {}
+}
+function updateUserChip() {
+  var el = document.getElementById('user-chip');
+  if (el) el.textContent = '\u{1F464} ' + (currentUser || 'Anonymous');
+}
+function promptChangeName() {
+  var name = prompt('Your display name (shown in change log):', currentUser);
+  if (name !== null) {
+    saveUserName(name);
+    updateUserChip();
+    showToast('Name ' + (currentUser ? 'updated to "' + currentUser + '"' : 'cleared'));
+  }
+}
+function openUserPrompt(onComplete) {
+  var h = '<div class="modal-title">Welcome to GI Task Tracker</div>';
+  h += '<p style="font-size:13px;color:var(--txm);margin-bottom:16px">';
+  h += 'Enter your name so your edits are tracked in the change log.<br>';
+  h += 'Stored on this device only — only asked once per browser.</p>';
+  h += '<div class="form-group" style="margin-bottom:10px">';
+  h += '<label class="form-label">Your Name</label>';
+  h += '<input type="text" class="form-input" id="userNameInp" placeholder="e.g. Kyle" maxlength="40">';
+  h += '</div>';
+  h += '<div class="modal-acts">';
+  h += '<button class="btn-cancel" onclick="skipUserName()">Skip</button>';
+  h += '<button class="btn-save" onclick="confirmUserName()">Continue</button>';
+  h += '</div>';
+  document.getElementById('userModalBody').innerHTML = h;
+  document.getElementById('userModal').classList.add('open');
+  setTimeout(function() {
+    var inp = document.getElementById('userNameInp');
+    if (inp) {
+      inp.focus();
+      inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') confirmUserName(); });
+    }
+  }, 200);
+  window._nameCallback = onComplete || function(){};
+}
+function confirmUserName() {
+  var inp = document.getElementById('userNameInp');
+  saveUserName(inp ? inp.value : '');
+  document.getElementById('userModal').classList.remove('open');
+  updateUserChip();
+  if (window._nameCallback) { window._nameCallback(); window._nameCallback = null; }
+}
+function skipUserName() {
+  saveUserName('');
+  document.getElementById('userModal').classList.remove('open');
+  updateUserChip();
+  if (window._nameCallback) { window._nameCallback(); window._nameCallback = null; }
+}
+
+// ── SYNC STATUS ────────────────────────────────────────────────────
+function setSyncStatus(status, msg) {
+  var el = document.getElementById('sync-status');
+  if (!el) return;
+  var map = {
+    idle:    { dot: 'rgba(255,255,255,.25)', text: '' },
+    saving:  { dot: '#d4a017',  text: 'Saving...' },
+    synced:  { dot: '#4caf50',  text: 'Synced' },
+    error:   { dot: '#b93328',  text: msg || 'Error' },
+    offline: { dot: '#b93328',  text: msg || 'Offline' }
+  };
+  var c = map[status] || map.idle;
+  el.innerHTML = '<span style="color:' + c.dot + ';font-size:14px;line-height:1">\u25CF</span>'
+    + (c.text ? '<span style="font-size:11px;color:rgba(255,255,255,.8);margin-left:4px">' + c.text + '</span>' : '');
+}
+
+// ── LOCAL CACHE ────────────────────────────────────────────────────
+function cacheLoad() {
+  try { var r = localStorage.getItem(LOCAL_KEY); return r ? JSON.parse(r) : null; }
+  catch(e) { return null; }
+}
+function cacheSave(data) {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+// ── REPORT DEFAULTS ────────────────────────────────────────────────
+function loadReportDefaults() {
+  try { var r = localStorage.getItem(REPORT_KEY); if (r) return JSON.parse(r); } catch(e) {}
+  return {
+    title: 'General Inspection Task Report', subtitle: '',
+    scope: 'all', selectedTabs: [],
+    includeStats: true, includeCharts: true, includeTables: true,
+    includeCompleted: false, priorities: ['High','Medium','Low'], statuses: []
+  };
+}
+function saveReportDefaults(cfg) {
+  try { localStorage.setItem(REPORT_KEY, JSON.stringify(cfg)); } catch(e) {}
+}
+
+// ── STATE ──────────────────────────────────────────────────────────
+function nowTs() {
+  var ts = new Date().toLocaleString('en-US', {
+    month:'2-digit', day:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit', hour12:true
+  });
+  return currentUser ? ts + ' (' + currentUser + ')' : ts;
+}
+
+function serializeState() {
+  return {
+    v: (localVersion || 0) + 1,
+    ts: new Date().toISOString(),
+    savedBy: currentUser || 'anonymous',
+    tabs: state.tabs,
+    tasks: state.tasks,
+    timestamps: state.timestamps,
+    tabCols: state.tabCols,
+    tabBuckets: state.tabBuckets
+  };
+}
+
+function applyRemoteState(remote) {
+  if (!remote || !remote.tabs) return false;
+  state.tabs       = remote.tabs;
+  state.tasks      = remote.tasks      || {};
+  state.timestamps = remote.timestamps || {};
+  state.tabCols    = remote.tabCols    || {};
+  state.tabBuckets = remote.tabBuckets || {};
+  cloudVersion = remote.v || 0;
+  localVersion = cloudVersion;
+  if (!state.activeTab || state.tabs.indexOf(state.activeTab) === -1)
+    state.activeTab = state.tabs[0];
+  return true;
+}
+
+// ── PERSIST ────────────────────────────────────────────────────────
+function persist() {
+  state.timestamps[state.activeTab] = nowTs();
+  cacheSave(serializeState());
+  var ind = document.getElementById('save-ind');
+  if (ind) { ind.textContent = 'Saving...'; ind.style.opacity = '1'; }
+  setSyncStatus('saving');
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(persistNow, 800);
+}
+
+function persistNow() {
+  var payload = serializeState();
+  payload.v = (localVersion || 0) + 1;
+  ignoreNextStream = true;
+  fbWrite(payload)
+    .then(function() {
+      localVersion = payload.v;
+      cacheSave(payload);
+      setSyncStatus('synced');
+      var ind = document.getElementById('save-ind');
+      if (ind) {
+        ind.textContent = currentUser ? 'Saved by ' + currentUser : 'Saved';
+        ind.style.opacity = '1';
+        clearTimeout(saveIndTimer);
+        saveIndTimer = setTimeout(function() {
+          ind.style.opacity = '0';
+          setSyncStatus('idle');
+        }, 3000);
+      }
+    })
+    .catch(function(err) {
+      ignoreNextStream = false;
+      setSyncStatus('offline', 'Offline');
+      var ind = document.getElementById('save-ind');
+      if (ind) { ind.textContent = 'Saved locally only'; ind.style.opacity = '1'; }
+      console.warn('Firebase write failed:', err);
+    });
+}
+
+// ── UPDATE BANNER ──────────────────────────────────────────────────
+function showUpdateBanner(remoteData) {
+  var el = document.getElementById('update-banner');
+  if (!el) return;
+  var who  = remoteData.savedBy || 'Someone';
+  var when = remoteData.ts
+    ? new Date(remoteData.ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})
+    : 'just now';
+  el.innerHTML = '<span>\u21BA ' + esc(who) + ' updated at ' + when + '</span>'
+    + '<button onclick="acceptUpdate()" style="margin-left:12px;background:#fff;color:var(--gig);'
+    + 'border:1px solid var(--gig);padding:3px 12px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">'
+    + 'Load updates</button>'
+    + '<button onclick="dismissUpdate()" style="margin-left:6px;background:none;border:none;'
+    + 'color:var(--txm);font-size:18px;cursor:pointer;line-height:1">\u00D7</button>';
+  el.style.display = 'flex';
+  window._pendingRemote = remoteData;
+}
+function acceptUpdate() {
+  if (window._pendingRemote) {
+    applyRemoteState(window._pendingRemote);
+    cacheSave(window._pendingRemote);
+    dismissUpdate();
+    renderApp();
+    showToast('Loaded latest updates.');
+  }
+}
+function dismissUpdate() {
+  var el = document.getElementById('update-banner');
+  if (el) el.style.display = 'none';
+  if (window._pendingRemote) localVersion = window._pendingRemote.v;
+}
+
+// ── BACKUP / RESTORE ───────────────────────────────────────────────
+function downloadBackup() {
+  var payload = serializeState();
+  payload.backupDate = new Date().toISOString();
+  var json = JSON.stringify(payload, null, 2);
+  var blob = new Blob([json], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'GI_Backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  showToast('Backup downloaded.');
+}
+function openRestoreDialog() {
+  if (!confirm('Restore from a backup? This overwrites ALL current data for the entire team.')) return;
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json';
+  inp.onchange = function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var data = JSON.parse(ev.target.result);
+        if (!data.tabs || !data.tasks) { showToast('Invalid backup file.'); return; }
+        data.v = (localVersion || 0) + 1;
+        data.savedBy = currentUser || 'anonymous';
+        data.ts = new Date().toISOString();
+        fbWrite(data).then(function() {
+          applyRemoteState(data);
+          cacheSave(data);
+          renderApp();
+          showToast('Backup restored for entire team.');
+        }).catch(function(err) {
+          showToast('Restore failed: ' + err.message);
+        });
+      } catch(ex) { showToast('Could not read backup file.'); }
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
+
+// ── INIT ───────────────────────────────────────────────────────────
+function initApp() {
+  loadUserName();
+
+  document.getElementById('appContent').innerHTML =
+    '<div style="text-align:center;padding:80px 20px;color:var(--txm)">'
+    + '<div style="font-size:36px;margin-bottom:16px;color:var(--gig)">&#9654;</div>'
+    + '<div style="font-size:15px;font-weight:600;color:var(--gig)">Connecting to shared database...</div>'
+    + '<div style="font-size:12px;margin-top:8px">Usually just a second</div>'
+    + '</div>';
+
+  fbRead()
+    .then(function(remote) {
+      if (remote && remote.tabs && remote.tabs.length) {
+        // Data exists in cloud — use it
+        applyRemoteState(remote);
+        cacheSave(remote);
+        setSyncStatus('synced');
+        console.log('Loaded from Firebase: ' + remote.tabs.length + ' tabs, v=' + remote.v);
+        finishInit();
+      } else {
+        // First ever load — seed default data and push to Firebase
+        console.log('Firebase empty — seeding default data...');
+        initDefault();
+        var payload = serializeState();
+        fbWrite(payload)
+          .then(function() {
+            localVersion = payload.v;
+            cacheSave(payload);
+            setSyncStatus('synced');
+            showToast('Database initialized with all PM data.');
+            console.log('Seed data pushed to Firebase successfully.');
+          })
+          .catch(function(err) {
+            console.warn('Could not push seed data:', err);
+            setSyncStatus('offline', 'Check Firebase rules');
+            showToast('Connected but could not write — check Firebase rules.');
+          });
+        finishInit();
+      }
+    })
+    .catch(function(err) {
+      console.warn('Firebase read failed:', err);
+      // Try local cache
+      var cached = cacheLoad();
+      if (cached && cached.tabs && cached.tabs.length) {
+        applyRemoteState(cached);
+        setSyncStatus('offline', 'Offline \u2014 cached');
+        showToast('Running from local cache \u2014 changes will sync when reconnected.');
+      } else {
+        initDefault();
+        setSyncStatus('offline', 'Offline');
+        showToast('Could not connect. Check your internet connection.');
+      }
+      finishInit();
+    });
+}
+
+function finishInit() {
+  attachStream();
+  appReady = true;
+  if (!currentUser) {
+    openUserPrompt(function() {
+      renderApp();
+      updateUserChip();
+    });
+  } else {
+    renderApp();
+    updateUserChip();
+  }
+}
+
+
+// ═══ MAIN APPLICATION ═══
+
+var REPORT_STORE = 'gi-tt-report-defaults';
+var GLOBAL_COLUMNS = [
+  { key:'customer',    label:'Customer',        type:'text',    visible:true  },
+  { key:'notes',       label:'Details / Notes', type:'textarea',visible:true  },
+  { key:'owner',       label:'Owner',           type:'ac',      visible:true  },
+  { key:'support',     label:'Supporting',      type:'ac',      visible:true  },
+  { key:'priority',    label:'Priority',        type:'priority',visible:true  },
+  { key:'status',      label:'Status',          type:'status',  visible:true  },
+  { key:'due',         label:'Due Date',        type:'date',    visible:true  },
+  { key:'milestone',   label:'Next Milestone',  type:'text',    visible:true  },
+  { key:'meetingNotes',label:'Meeting Notes',   type:'textarea',visible:true  }
+];
+var GLOBAL_BUCKETS = ['Active Projects','Shipped / HIT List','Sales Support','Working Groups','Machine Improvements','Misc'];
+var TAB_BUCKETS = {
+  'Kyle':              ['Active Projects','Shipped / HIT List','Sales Support','Working Groups','Machine Improvements','Misc'],
+  'Favs':              ['Active Projects','Shipped / HIT List','Sales Support','Machine Improvements'],
+  'Noah':              ['Active Projects','Shipped / HIT List','Sales Support','Machine Improvements'],
+  'Kendra':            ['Active Projects','Shipped / HIT List','Sales Support','Machine Improvements'],
+  'Software - Kendra': ['Software Tasks'],
+  'Service - Jonah':   ['Active Service','Closed / Complete'],
+  'Jason':             ['Jason Tasks','Service Visibility'],
+  'Design Bob & Cody': ['Bob O Tasks','Cody Tasks']
+};
+var STATUS_OPTS = ['Ongoing','In Progress','In Process','Planned','Pending','Complete','On Hold','Delayed','Waiting on Response','Not Started','Idle','Scheduled','High Priority'];
+
+var state = { tabs:[], activeTab:null, tasks:{}, timestamps:{}, tabCols:{}, tabBuckets:{} };
+var editingTask=null, editingBucket=null;
+var curSearch='', curFilter='', curPriFilter='';
+var sortCol='', sortDir=1;
+var dashSearch='', dashPM='', dashBucket='', dashStatus='', dashDue='', dashPri='';
+var myTasksName='', cfgCurrentTab='';
+var showCompleted={}; // per-tab toggle
+var chartInstances={};
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// nowTs() → firebase layer
+
+function getKnownNames(){
+  var seen={};
+  state.tabs.forEach(function(tab){
+    getTabBuckets(tab).forEach(function(b){
+      ((state.tasks[tab]||{})[b]||[]).forEach(function(t){
+        ['owner','support'].forEach(function(k){
+          if(t[k]) t[k].split(/[,]+/).forEach(function(n){
+            var nm=n.trim(); if(nm.length>1) seen[nm.toLowerCase()]=nm;
+          });
+        });
+      });
+    });
+  });
+  return Object.values(seen).sort(function(a,b){return a.localeCompare(b);});
+}
+
+function makeAC(inp){
+  if(!inp||inp._acDone) return;
+  inp._acDone=true;
+  var wrap=inp.parentNode;
+  var list=document.createElement('div');
+  list.className='ac-list';
+  wrap.appendChild(list);
+  var idx=-1;
+  function show(names){
+    list.innerHTML=''; idx=-1;
+    if(!names.length){list.style.display='none';return;}
+    names.slice(0,8).forEach(function(name){
+      var item=document.createElement('div');
+      item.className='ac-item'; item.textContent=name;
+      item.addEventListener('mousedown',function(e){
+        e.preventDefault(); inp.value=name; list.style.display='none'; inp.focus();
+      });
+      list.appendChild(item);
+    });
+    list.style.display='block';
+  }
+  inp.addEventListener('input',function(){
+    var q=inp.value.trim().toLowerCase();
+    if(q.length<1){list.style.display='none';return;}
+    show(getKnownNames().filter(function(n){return n.toLowerCase().indexOf(q)>-1&&n.toLowerCase()!==q;}));
+  });
+  inp.addEventListener('keydown',function(e){
+    var items=list.querySelectorAll('.ac-item');
+    if(!items.length) return;
+    if(e.key==='ArrowDown'){e.preventDefault();idx=Math.min(idx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('sel',i===idx);});}
+    else if(e.key==='ArrowUp'){e.preventDefault();idx=Math.max(idx-1,0);items.forEach(function(el,i){el.classList.toggle('sel',i===idx);});}
+    else if(e.key==='Enter'&&idx>=0){e.preventDefault();inp.value=items[idx].textContent;list.style.display='none';inp.focus();}
+    else if(e.key==='Escape'){list.style.display='none';}
+  });
+  inp.addEventListener('blur',function(){setTimeout(function(){list.style.display='none';},200);});
+}
+
+// loadState() → firebase layer
+// persist() → firebase layer
+function getTabCols(tab){return state.tabCols[tab]?state.tabCols[tab]:JSON.parse(JSON.stringify(GLOBAL_COLUMNS));}
+function getTabBuckets(tab){
+  if(state.tabBuckets[tab]) return state.tabBuckets[tab];
+  if(TAB_BUCKETS[tab]) return TAB_BUCKETS[tab];
+  return GLOBAL_BUCKETS.slice();
+}
+function ensureTab(tab){
+  if(!state.tasks[tab]) state.tasks[tab]={};
+  getTabBuckets(tab).forEach(function(b){if(!state.tasks[tab][b])state.tasks[tab][b]=[];});
+}
+function mk(c,n,o,s,st,due,pri,ms,mn){
+  return {id:uid(),customer:c||'',notes:n||'',owner:o||'',support:s||'',status:st||'Ongoing',due:due||'',priority:pri||'Medium',milestone:ms||'',meetingNotes:mn||'',changelog:[{t:nowTs(),msg:(currentUser?currentUser+' created task':'Task created')}]};
+}
+function initDefault(){
+  var dTabs=['Kyle','Favs','Noah','Kendra','Software - Kendra','Service - Jonah','Jason','Design Bob & Cody'];
+  state.tabs=dTabs; state.activeTab=dTabs[0];
+  state.tasks={}; state.timestamps={}; state.tabCols={};
+  state.tabBuckets={};
+  Object.keys(TAB_BUCKETS).forEach(function(t){state.tabBuckets[t]=TAB_BUCKETS[t].slice();});
+  dTabs.forEach(function(t){
+    state.tasks[t]={};
+    getTabBuckets(t).forEach(function(b){state.tasks[t][b]=[];});
+  });
+  seedAll();
+  persist();
+}
+
+function seedAll(){
+  state.tasks['Kyle']['Active Projects'].push(mk('GGG - 1750/1751','Connie to pick before EOM. Last new parts in JB as of 4/30 (follow up with Kim/Hailey). Parts requested for June delivery - follow up by 5/15.','Kyle','','Ongoing','2026-05-08','High','',''));
+  state.tasks['Kyle']['Active Projects'].push(mk('Olin LCAAP - 1760','5/7 PDR, preliminary run-through with Dominic. Need to check model on exits. Cody updating model and STEP files. Olin/USG plan 100% on track.','Kyle','Cody','Ongoing','2026-05-06','High','',''));
+  state.tasks['Kyle']['Active Projects'].push(mk('Ayda - 1747','Josh on site with Elian for install. Spoke to Josh, Joachim, and Zeke re: repeatability vs tolerance.','Josh','Service','Ongoing','2026-05-09','High','',''));
+  state.tasks['Kyle']['Active Projects'].push(mk('Demo 636v - 1736','Job wrapped and handed off for review. Availability check to be done.','Kyle','','Ongoing','','Medium','','Ready for BOM review'));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('SBC','Work on by EOW','Kyle','','Ongoing','2026-05-08','High','','Kyle will update Justin today'));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('Fenix','Stamp work will require additional software efforts. Update in a week with status.','Kyle','Software','Ongoing','2026-05-06','High','','Software timeline 5/6, Kyle to update today'));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('Fiocchi/Federal','Dylan handed files off - work after SBC','Kyle','Dylan','Ongoing','2026-05-06','Medium','',''));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('Ardec','No open item at this time','','','Complete','','Low','',''));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('Cugir','No open item at this time','','','Complete','','Low','',''));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('GGG','Start working group once past current issues. Have Jonah ping them about training visit - offer discount? Start group by beginning of June regardless.','Service','Kyle','Ongoing','2026-06-01','Medium','',''));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('MEN','Jason wrapped visit - success. Follow up in 2 weeks to check in.','Service','','Ongoing','2026-05-15','Medium','',''));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('Olin LCAAP','Service owes a plan/outline of what to do for the 7.62 machines','Service','','Ongoing','2026-05-04','High','',''));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('Grandeur','No open item at this time','','','Complete','','Low','',''));
+  state.tasks['Kyle']['Shipped / HIT List'].push(mk('Mesko','No open item at this time','Service','','On Hold','','Low','',''));
+  state.tasks['Kyle']['Sales Support'].push(mk('IMI','Pending Yossi','Kyle','Sales','Complete','','Low','',''));
+  state.tasks['Kyle']['Sales Support'].push(mk('OFV','Updated quote sent','Kyle','Sales','Complete','','Low','',''));
+  state.tasks['Kyle']['Sales Support'].push(mk('BAE','Updated options sent (not official quotes). Once they respond we will update.','Kyle','Sales','Waiting on Response','','Medium','',''));
+  state.tasks['Kyle']['Sales Support'].push(mk('MEN','Joachim sent quote and will call next week to discuss trading machines.','Kyle','Sales','Waiting on Response','','Medium','',''));
+  state.tasks['Kyle']['Sales Support'].push(mk('Olin Vlab','Assist as needed / can be','Kyle','Favs','Ongoing','2026-05-12','Medium','',''));
+  state.tasks['Kyle']['Working Groups'].push(mk('Olin (Oxfd/Manitowoc)','Going through more emails. Updated report sent for review on 5/4.','Kyle','Chris','Ongoing','2026-05-05','High','',''));
+  state.tasks['Kyle']['Working Groups'].push(mk('Sig','Service working with them for training plan/etc','Service','','Ongoing','2026-05-15','Medium','',''));
+  state.tasks['Kyle']['Working Groups'].push(mk('Sig Working Group','Call today, forwarded - not sure anyone but myself and Jason on it. No open details - will update post call.','Service','Kyle','Ongoing','','Medium','',''));
+  state.tasks['Kyle']['Machine Improvements'].push(mk('New CG Station','Cameras/Lenses options given to Chris and Nate. Design team made aware. Parts picked or sent to order.','R&D','Design','Ongoing','2026-05-15','Medium','','Chris to set date with design 5/4'));
+  state.tasks['Kyle']['Machine Improvements'].push(mk('Cooling','Test new program after Norman. Get to service and outline to Jacob G at Olin how to download via flash drive. Appears it is NOT heat.','Service','Kyle','Ongoing','2026-05-06','High','','Normen has update from Miguel - testing today. Chris asked for summary.'));
+  state.tasks['Kyle']['Machine Improvements'].push(mk('Documentation / Manuals','On my agenda - need to carve out time now that current jobs are populated.','Kyle','','On Hold','','Low','',''));
+  state.tasks['Kyle']['Machine Improvements'].push(mk('Gravity Part Tracker','Still in the queue for software / R&D','Software','R&D','On Hold','','Low','',''));
+  state.tasks['Kyle']['Machine Improvements'].push(mk('CMMC Efforts - CUI Enclave','Spoke to providers. Reached out to Enertron re: cost of MS government account to present cost options internally.','Kyle','','Ongoing','','Medium','',''));
+  state.tasks['Kyle']['Machine Improvements'].push(mk('Multigate','In the design queue','Design','','On Hold','','Low','',''));
+  state.tasks['Favs']['Active Projects'].push(mk('ITW - VLAB150 (1731)','Keeping here until Tom King is ready','Favs','','On Hold','','Low','',''));
+  state.tasks['Favs']['Active Projects'].push(mk('GTP VLABS - 1742 VL75','P/N 12 Complete, Favs to get in writing. P/N 13 - Favs sending data 5/1, running test again 5/4.','Favs','','In Process','2026-05-04','High','',''));
+  state.tasks['Favs']['Active Projects'].push(mk('GTP - 1743 VL300','Finalize after completing VL75','Favs','','Planned','','Medium','After Delivery',''));
+  state.tasks['Favs']['Active Projects'].push(mk('Olin - VLABX75-DD 1759','Design completing detailing. Order parts for weigh cell to build and test. Critical Design Review planned.','Favs','Design','In Process','2026-05-14','High','Design Review Completion',''));
+  state.tasks['Favs']['Active Projects'].push(mk('GGG - VLAB 150 1762','Quote for shipping sent. Videos and pictures sent to customer. Waiting for customer to send to crating. Preshipment checklist pending.','Favs','Kendra','Pending','2026-05-11','High','Prior to shipment - invoiced',''));
+  state.tasks['Favs']['Active Projects'].push(mk('General Munitions - VLAB 1768','Training at GI 5/5-5/6. Wants quote for training at their facility.','Paul','','Planned','2026-05-06','Medium','Prior to shipment - invoiced',''));
+  state.tasks['Favs']['Active Projects'].push(mk('Elite Fasteners - VLAB 1769','Build complete. Commissioning pending.','Production','','Planned','2026-05-08','Medium','Prior to Shipment',''));
+  state.tasks['Favs']['Active Projects'].push(mk('150 Demo - 1754','Stations from 1768 transferred back to VLM. Review BOM.','Jason','','Planned','2026-05-08','Medium','',''));
+  state.tasks['Favs']['Active Projects'].push(mk('75 Demo - 1775','Transfer stations not used to VLM. Review BOM.','Haliey','Jason','Planned','2026-05-08','Medium','',''));
+  state.tasks['Favs']['Shipped / HIT List'].push(mk('Eurofast','Get satisfaction in writing','Favs','','In Process','','Medium','',''));
+  state.tasks['Favs']['Shipped / HIT List'].push(mk('SKS','Training','Favs','','Planned','2026-05-04','Medium','',''));
+  state.tasks['Favs']['Shipped / HIT List'].push(mk('Kennametal','Customer wants more training - reach out to schedule','Favs','','Planned','2026-05-04','Medium','',''));
+  state.tasks['Favs']['Sales Support'].push(mk('IMT','Review Specification for internal review','Favs','Chris','Planned','2026-05-05','Medium','',''));
+  state.tasks['Favs']['Sales Support'].push(mk('OLIN Bid','Review and have responses for Olin bid 5/6/2026','Favs','','In Process','2026-05-06','High','',''));
+  state.tasks['Favs']['Sales Support'].push(mk('Global Ordinance','Supply visit summary internal to GI','Favs','','Planned','2026-05-04','Medium','',''));
+  state.tasks['Favs']['Sales Support'].push(mk('Sig','Work with Greg to make game plan of Sig buy-in on VLABS','Favs','','Ongoing','','Medium','',''));
+  state.tasks['Favs']['Machine Improvements'].push(mk('Training Videos','Jared and Favs VLAB training videos','Favs','Jared','Ongoing','2026-07-31','Low','',''));
+  state.tasks['Favs']['Machine Improvements'].push(mk('150 Lenses','Get tracking on Lenses to be tested','Favs','','Ongoing','2026-05-08','Low','',''));
+  state.tasks['Favs']['Machine Improvements'].push(mk('Commissioning Doc','Gather feedback from techs on new commissioning doc - changes or improvements needed?','Favs','','Ongoing','2026-05-08','Low','',''));
+  state.tasks['Noah']['Active Projects'].push(mk('Kennametal - 720 (1755)','Strobe controller issue narrowed down 4/30 with Nate. Plan to resolve, run 2-3 days to verify, ship week of 5/11. Noah and Sawyer to install.','Nate','Sawyer','In Progress','2026-05-11','High','After Installation',''));
+  state.tasks['Noah']['Active Projects'].push(mk('SELinc - 307 (1757)','Integrate Feeder. Create Templates on Machine. ATP Remote planned. Customer informed of timeline.','Production','Dylan','In Progress','2026-05-08','High','Prior to Shipment',''));
+  state.tasks['Noah']['Active Projects'].push(mk('Marion - 100 (1761)','Feeder videos due from Moorfeed - need to review thoroughly. Connie Staging in progress. Enclosure arrives 5/22.','Connie','','Pending','2026-05-22','High','Prior to Shipment',''));
+  state.tasks['Noah']['Active Projects'].push(mk('Marian/Tesla - 100 (1765)','Tesla requested GRR study - test rig only for now. Feeder ready by 5/11. Kendra to add reject-only image save. 100 Enclosure due 5/15.','Kendra','Connie','Pending','2026-05-15','High','Prior to Shipment',''));
+  state.tasks['Noah']['Active Projects'].push(mk('Infasco - 307 (1770-1773)','Layout and 3D model sent to Infasco 4/24. Contact has not replied in over a week. Noah emailed 4/30 adding 2-4 week extension to project timeline.','Noah','','Delayed','','High','After Design Approval',''));
+  state.tasks['Noah']['Active Projects'].push(mk('Shannon - 307 (1758)','Compare BOM with Infasco and finalize. Shannon reviewing same changes as Infasco. Meet 5/6.','Noah','','Pending','2026-05-06','Medium','',''));
+  state.tasks['Noah']['Active Projects'].push(mk('Polywood - 307 (1764)','Design has 3D model from Jenn Tai, completion target 5/6. Design Approval to be sent by 5/8. BOM waiting for Infasco and Shannon. Feeder ordered.','Noah','Design','In Progress','2026-05-08','High','After Design Approval',''));
+  state.tasks['Noah']['Shipped / HIT List'].push(mk('MS Aerospace - 720 (1744)','Gary still having issues - believe it is mainly training. Jonah visiting 5/5. Need backup plan for follow-up visit.','Jonah','Noah','In Progress','2026-05-01','High','',''));
+  state.tasks['Noah']['Shipped / HIT List'].push(mk('Technymon','Scheduling visit to bury','Jonah','Noah','In Progress','2026-05-05','Medium','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Rightway','They have what they need at this time - no update.','','','Ongoing','','Low','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Maclean-Fog','Quotes sent. Working with Churchill again. Expanded scope - STP file of the 100 requested.','Noah','','In Progress','','Medium','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('LE Jones','Noah to send over the SOW and marked print','Noah','','In Progress','2026-05-04','High','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('NNINC','PO received - waiting for clarification on if they order the feeder','Noah','','Pending','2026-05-04','Medium','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Bleistahl','MSA on samples sent. Tyler will setup parts - waiting for confirmation from Bleistahl.','Tyler','','Pending','','Medium','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Elmet','Quotation sent','Noah','','Pending','','Low','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Spirol','307 quote sent','Noah','','Pending','','Low','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('ESW','Awaiting feedback','Noah','','Pending','','Low','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Boeing','Visiting 4/30, Tyler running with them on the visionlab through 5/4','Tyler','','In Progress','2026-05-04','Medium','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Tompkins','Sending sample parts for testing to verify dimensions','Noah','','Pending','','Low','',''));
+  state.tasks['Noah']['Sales Support'].push(mk('Tesla 2 and 3','Should receive PO 5/4. Chris and Noah working on Tesla Vendor Pricing.','Noah','Chris','Pending','2026-05-04','High','',''));
+  state.tasks['Noah']['Machine Improvements'].push(mk('Encoder Setup','Software tool for setting up encoder positions easier on GI-100/720. Could be a mode taking multiple images every 100 encoder ticks to find best image.','R&D','','Ongoing','','Medium','',''));
+  state.tasks['Noah']['Machine Improvements'].push(mk('307 Cracks','New tool for 307 crack cameras to better detect part head for cracks. Should be automatic. Kendra has images 5/1, owes date.','Kendra','R&D','Ongoing','2026-07-06','High','',''));
+  state.tasks['Noah']['Machine Improvements'].push(mk('WPF','Software QOL - Reassess list once WPF is implemented. Is this still going to happen? Software ETA?','Software','','Ongoing','','Medium','',''));
+  state.tasks['Noah']['Machine Improvements'].push(mk('Light Testing - Wenglor','Have new Wenglor ring light for testing.','Noah','','In Progress','','Low','',''));
+  state.tasks['Noah']['Machine Improvements'].push(mk('Light Testing - TPL','TPL sending collimated backlight and standard backlights. Specifically want to test collimated light on Tesla parts.','Noah','','Pending','','Low','',''));
+  state.tasks['Noah']['Machine Improvements'].push(mk('Thread Quality','Set up old platform rig upstairs to test old TQ vs new platform. Colby on this.','Colby','','In Progress','2026-05-01','Medium','',''));
+  state.tasks['Kendra']['Active Projects'].push(mk('Howmet 1734','Approved ATP and GRR samples. Struggling on broach depth with small parts (2mm hex width and below). Solution: scan across depth and select best image - plan by 5/6. ATP will likely push to 5/11 or 5/18.','Kendra','','Ongoing','2026-05-06','High','',''));
+  state.tasks['Kendra']['Active Projects'].push(mk('Curtiss-Wright 1689','Have samples and ATP document. Customer needs to acquire GRR samples and ship. Want to come to GI for run-off 5/11.','Kendra','','Ongoing','2026-05-11','High','Acceptance at GI',''));
+  state.tasks['Kendra']['Active Projects'].push(mk('Show Machine 1763','Rewire panel to have DIO 144 card - waiting until 5/11 to keep machine available for Hilti demo. Rewire requires ~1.5 weeks downtime. Machine going to IMTS in September.','Production','Kendra','Not Started','2026-05-15','High','',''));
+  state.tasks['Kendra']['Shipped / HIT List'].push(mk('Lisi 1741','Received sign-off today. Plexiglass needs to ship - Jared to install, target 5/25. Agreed to assist with GRR and pass by 5/29. Quote needed for depth station, backup fingers, and 4 new bins.','Kendra','Jared','Ongoing','2026-05-29','High','',''));
+  state.tasks['Kendra']['Shipped / HIT List'].push(mk('Shamrock 1705','Ryan running machine daily. Having dinner with Corbin on Sunday after PMPA conference - bringing sign-off paperwork.','Kendra','','Ongoing','','Medium','',''));
+  state.tasks['Kendra']['Sales Support'].push(mk('ND Presstec','Waiting on measured samples - myself and Joachim have reached out. Asked again for update today 5/1.','Kendra','','Waiting on Response','','Medium','',''));
+  state.tasks['Kendra']['Sales Support'].push(mk('Hilti','Samples arrived Thursday. Meeting with Ivan on 5/7. Begin setup of samples on 1763 on 5/4. Documents requiring response complete by EOD 5/4.','Kendra','','Ongoing','2026-05-07','High','',''));
+  state.tasks['Kendra']['Sales Support'].push(mk('Olin','New bid needed - will provide what is needed when we review','Kendra','','Planned','','Medium','',''));
+  state.tasks['Kendra']['Machine Improvements'].push(mk('Design Improvements - AQL and Standard Automated','Reached out to design to schedule meeting for early next week to discuss how to reduce footprint, reduce cost, and improve both machine types.','Kendra','Design','Waiting on Response','','Medium','',''));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Temperature Monitoring','Service that monitors temperature of heat conducting components. Max temperature and duration are configurable. Pop-up alert on overheat. Can be installed with GI installer.','Miguel','','Complete','','Low','',''));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Headstamp Categorization','Fenix wants different levels of failures/passes on headstamp. Quick fix attempted but unsuccessful. Meeting for better solution internally on 5/4 when Brandon returns.','Brandon','','On Hold','2026-05-04','High','','Customer: Fenix Ammo'));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Broach Depth Scan','When part has small broach, laser is not repeatable enough. Will scan over broach taking multiple images then select best for measurement. Meeting 5/4 to finalize plan.','Miguel','Justin','Ongoing','2026-05-29','High','','Customer: Howmet'));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Thread Anchor Improvements','Thread anchors have needed repeatability improvements. Ethan working on this now. Also exploring adding different thread type anchors.','Ethan','','Ongoing','2026-05-15','Medium','',''));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Windows IOT/RTX Replacement','Nate and Justin working on RTX replacement - very good progress but still bugs to iron out. Massive improvements weekly. Testing on Howmet machine. Will begin testing on other machine types once majority of bugs resolved.','Justin','Nate','Ongoing','2026-05-15','High','',''));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('AI Integration - Lead Retrieval','Brandon working on AI implementations beginning with lead retrieval. Out of office at Lisi - better update next week.','Brandon','','Ongoing','','Medium','',''));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Infinity QS Connection','Met with Infinity QS 4/29, installed on VL150 in demo room. Next meeting 5/6 - Brandon to meet re: connecting to database. Will reach out to David Ware for demo after.','Kendra','Brandon','Ongoing','2026-05-15','High','','Customer: Olin/Lake City'));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Crack Detect Improvements','Noah needs improvements to crack detection for 10 camera acquisition. Tools available - need to add functionality and make algorithm more user friendly.','','','Not Started','2026-07-06','High','','Customer: Noah 307'));
+  state.tasks['Software - Kendra']['Software Tasks'].push(mk('Headstamp Tool Improvements','Need improvements to headstamp tool. Exploring AI options and real OCR with simple training/setup. Need to meet internally - will provide plan and deadline next week.','','','Not Started','','Medium','','Customer: MSAero / All customers'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Flipper Replacement','Updated quote sent for 2x motors with discount. 5/5','Jonah','','Ongoing','2026-05-20','Medium','','Customer: SARA'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Sorting Issues','GGG double trigger issues on primer trigger. Going to widen throughhole. Will ping when back from MS Aerospace.','Jonah','','Ongoing','2026-05-11','High','','Customer: GGG'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Missing Images','Dylan found dumping issue and relayed to Revifa. Awaiting info on which defects they need help setting up.','Dylan','','Ongoing','2026-05-15','Medium','','Customer: Revifa'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Head Tilt Motor','Chan Hsiung having issues with headtilt motor. Dominic getting visa to travel there.','Dominic','','Ongoing','','Medium','','Customer: Chan Hsiung'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Feeder/Elevator Parts','Need to decide who can do this and when. Replacing Glass DT, swapping Elevator components, replacing metering wheel component.','','','Ongoing','2026-05-05','High','','Customer: Technymon'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Motherboard Issues','Paul has Teams call scheduled 5/5 to walk through troubleshooting. Machine still functions normally.','Paul','','Ongoing','2026-05-05','Medium','','Customer: Pif Paf'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Headstamp Tool','Waiting on customer to get us images.','Dylan','','Ongoing','2026-05-08','Medium','','Customer: TKG Hunt'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Missing Templates','Customer sent .zip file to Dylan this morning 5/5','Dylan','','Ongoing','2026-05-05','Medium','','Customer: Tenneco UK'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Feed Blowoffs','Parts shipped - need to schedule date. Josh at Ayda for 2 weeks. Jonah to get with Jason. Laser head needs to be installed as well.','Jonah','Josh','Ongoing','2026-05-15','Medium','','Customer: Tenneco Wisconsin'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Online Training','Training scheduled for 5/7','Tyler','','Ongoing','2026-05-07','Medium','','Customer: Sig Sauer'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Wellness Visit','Tyler to visit UB before customer visit. 5/20','Tyler','','Ongoing','2026-05-20','Medium','','Customer: Universal Bearing'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Upgrade','Waiting for parts to arrive. Targeting week of May 25th.','Josh','','Ongoing','2026-05-29','Medium','','Customer: Ammo Depot'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('1757 Commissioning','Machine working - needs templates set up.','Dylan','','Ongoing','2026-05-08','High','','Customer: 307'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('1689 Commissioning','Jared OOO 5/5, will continue when back 5/6','Jared','','Ongoing','2026-05-08','High','','Customer: Automated V Lab'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Machine Issues','Jonah visiting MS Aerospace to resolve headstamp and template issues.','Jonah','','Ongoing','2026-05-08','High','','Customer: MS Aerospace'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Assessment Visit','Need to schedule technician to visit Sig week of 5/11 for assessment and glass replacement on the 100.','','','Planned','2026-05-15','High','','Customer: Sig Sauer'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Machine Repair','Ammo Depot having machine issue - seems to be faulty board. Paul visiting and swapping hardware.','Paul','','Ongoing','2026-05-08','High','','Customer: Ammo Depot'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('1769 Commissioning','No RAM in PC. Hailey confirmed ordered 4/28, estimated delivery Friday 5/8.','Nathan','','Ongoing','2026-05-08','Medium','',''));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Support - Eurobolt','Problems homing motor. Follow up on 5/5.','Paul','','Ongoing','2026-05-04','Medium','','Customer: Eurobolt'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Service Order','Populate jobs in JB and ensure parts are picked and ordered ASAP.','Jonah','','Ongoing','','High','','Customer: Defender Upgrades'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Training Visit Quote','Quoting a Training visit - 3 days on site. Jason making quote and sending to Favs.','Jason','','Ongoing','2026-05-05','Medium','','Customer: General Munitions'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('GI-100 Evaluation','Tyler to visit next week. Need to finish Goal Sheet.','Jason','','Ongoing','2026-05-07','Medium','','Customer: Sig Sauer'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Machine Move Quote','Quote for tech to disconnect machine fully, assist with move, reinstall at new facility.','Jason','','Ongoing','2026-05-08','Medium','','Customer: Nosler'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Elevator Inverter','Warranty job created and part sent to Kim to buy.','','','Ongoing','2026-05-05','Medium','','Customer: Mesko'));
+  state.tasks['Service - Jonah']['Active Service'].push(mk('Elevator PC/Laser Problems','Dylan working with them 5/4 - follow up 5/5','Dylan','','Ongoing','2026-05-05','High','','Customer: Mesko'));
+  state.tasks['Service - Jonah']['Closed / Complete'].push(mk('License Request','Licenses have been sent. 5/5','','','Complete','2026-05-05','Low','','Customer: BAE'));
+  state.tasks['Service - Jonah']['Closed / Complete'].push(mk('Summary Response','Dylan sent summary 5/5','Dylan','','Complete','2026-05-05','Low','','Customer: Tenneco UK'));
+  state.tasks['Jason']['Jason Tasks'].push(mk('Crating Quotes - Timken','Information sent to CHAT awaiting response. Beaver confirmed quote is still valid.','Jason','','Ongoing','2026-05-06','High','',''));
+  state.tasks['Jason']['Jason Tasks'].push(mk('Shipping Timeline - Timken','Send estimated timeline for breaking down, crating and shipping.','Jason','','Complete','2026-05-04','Medium','',''));
+  state.tasks['Jason']['Jason Tasks'].push(mk('1775 BOM Review','Need to Review BOM for 1775 VL75','Jason','','Ongoing','2026-05-06','High','',''));
+  state.tasks['Jason']['Jason Tasks'].push(mk('1736 BOM Review','Need to review BOM for 1736','Jason','','Ongoing','2026-05-12','High','',''));
+  state.tasks['Jason']['Jason Tasks'].push(mk('1734 Returns - Kendra','Making progress. JB month end finished - now starting from beginning, transferring parts into inventory and adjusting job accordingly.','Jason','','Ongoing','2026-05-08','Medium','',''));
+  state.tasks['Jason']['Jason Tasks'].push(mk('Return Adjustments - GI','Once EOM finished: transfer all parts off jobs to inventory, adjust job, send list to Connie for Cycle Counts.','Jason','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('SARA','Flipper motor getting too hot. Quote sent with no response.','Jonah','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('GGG','Double trigger issues on primer trigger - going to widen throughhole.','Jonah','','Ongoing','','High','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Revifa','Missing images when running in sort - Dylan investigating.','Dylan','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Chan Hsiung','Headtilt motor issues. Dominic getting visa to travel there.','Dominic','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Technymon','Tyler possibly going 5/5 to swap feed components - waiting on Technymon to confirm.','Tyler','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Pif Paf','Paul has Teams call scheduled 5/5. Machine still functions normally.','Paul','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('TKG Hunt','Waiting on customer to get us images.','Dylan','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Tenneco UK','Dylan to log on once they fix their internet issues.','Dylan','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Tenneco Wisconsin','Parts shipped, need to schedule date. Josh at Ayda 2 weeks. Jonah to get with Jason.','Jonah','Josh','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Sig Sauer - Training','Training scheduled for 5/7','Tyler','','Ongoing','2026-05-07','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Universal Bearing','Tyler to visit before customer visit. 5/20','Tyler','','Ongoing','2026-05-20','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Ammo Depot - Upgrade','Waiting for parts, targeting week of May 25th','Josh','','Ongoing','2026-05-29','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('307 - Commissioning','Machine working, needs templates set up.','Dylan','','Ongoing','2026-05-08','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Automated V Lab','Commissioned and working on machine side. Robot might need waypoints set.','Jared','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('MS Aerospace','Jonah visiting to resolve headstamp and template issues.','Jonah','','Ongoing','2026-05-08','High','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Sig Sauer - Assessment','Schedule tech for week of 5/11 for assessment and glass replacement.','','','Planned','2026-05-15','High','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Ammo Depot - Repair','Faulty board. Paul visiting and swapping hardware.','Paul','','Ongoing','2026-05-08','High','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Eurobolt','Problems homing motor.','Paul','','Ongoing','','Medium','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Defender Upgrades','Populate jobs in JB and ensure parts are picked and ordered ASAP.','Jonah','','Ongoing','','High','',''));
+  state.tasks['Jason']['Service Visibility'].push(mk('Sig Sauer - Jason','Jason logging in to check telecentric alignment and assist with tool setups causing high rejects.','Jason','','Ongoing','','High','',''));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Infasco Requested Design Changes','STEP File generated. Pending customer review approval.','Bob O','','On Hold','','Medium','','Customer: Infasco'));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Review Stairs - 307s','Mike said fast delivery - RFQ needs to go out after design.','Bob O','','Planned','2026-05-05','Medium','','Customer: All 307s'));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Polywood 307 - Design File and BOM','Received 2D PDF Drawing. Need 3D model. Cody #5 - Haliey to coordinate meeting Tues AM 5/5.','Bob O','','Ongoing','2026-05-06','High','','Customer: Polywood'));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('VLAB-75-DD Design 1759 - Olin','Design dome. Need to finish detailing.','Bob O','','Ongoing','2026-05-08','High','','Customer: Olin VLAB'));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('New Server - Longer Drawer Slides','New server is 4&quot; longer. Need longer drawer slides on everything.','Bob O','','Planned','2026-05-12','Medium','',''));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('NNINC GI-100 PO','Short Lead - awaiting revised PO (Noah)','Bob O','','Planned','2026-05-13','High','','Customer: NNINC'));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Tesla 100s 2 and 3','Should have PO 5/4','Bob O','','Planned','2026-05-15','High','','Customer: Tesla'));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('V-Track Weigh Cell Design','Design needed','Bob O','','Planned','2026-05-20','Medium','',''));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Multigate - Smaller Parts','Meet as large group to discuss before beginning','Bob O','','Planned','','Low','',''));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Feeder Bowl Safety Curtain','Sig and GI design','Bob O','','Planned','','Low','',''));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Glass Belt Conveyor','','Bob O','','Planned','','Low','',''));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Mag Drum 720','','Bob O','','Planned','','Low','',''));
+  state.tasks['Design Bob & Cody']['Bob O Tasks'].push(mk('Grind Flat on Motor Shaft','Add to gantry wrist motors','Bob O','','Planned','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('100 Enclosure Review','Cody and Bob H reviewed, email sent back to Mike Howe 4/20/26 - awaiting quote','Cody','','On Hold','','Medium','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('1736 636V Build Ahead BOM','Make changes from last meeting and meet again. Nate testing lenses on rig upstairs - pending R&D.','Cody','','On Hold','','Medium','','For Kyle'));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Bleistahl Plant Layout','Pending - waiting for more direction from Greg','Cody','','On Hold','','Medium','','Customer: Bleistahl'));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('1765 - Bowl Debris Cover Hinges','Update design to add hinges with sides. Noah needs to decide on charging. Complete from design standpoint.','Cody','','Complete','','Low','','Customer: Tesla'));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Dimensional Gauging Rig for Nate','COMPLETE - Email sent 5/5','Cody','','Complete','2026-05-05','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('1733 Design Up to Date','Pending information. Need to update drawings/ensure they exist.','Cody','','Planned','2026-05-08','Medium','','Customer: Timken'));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('1741 Design Changes','Pending Jared email for details. Time unknown currently.','Cody','','Planned','','Medium','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Update Subasms per BOM Reviews','Need to work with PMs/Jason to align on wording and updates when changes are needed.','Cody','','Ongoing','','Medium','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Adding Extrusion Subassembly - GI100','Meet with Bob H/Bob O/Noah/Kyle/Haliey','Cody','','Planned','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Adding Price Template for 3D Parts','Date is far out due to Bob O vacation','Cody','','Planned','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Mini Vlab','','Cody','','Pending','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Strobe Box - Nadaly Design','R&D Testing','Cody','','Pending','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('1740 - Design of Experiments','Consult Josh','Cody','','Pending','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('720 Pinch Conveyor','Material, dump/fail tube replacement','Cody','','Pending','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('Laser Tracer Design','Send Chris Meeting Notes from meeting with this company','Cody','','Pending','','Low','',''));
+  state.tasks['Design Bob & Cody']['Cody Tasks'].push(mk('CAD LINK','','Cody','','Planned','','Low','',''));
+}
+
+function parseDue(s){if(!s)return null;var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+function dueClass(due){
+  if(!due)return 'na';
+  var d=parseDue(due),t=new Date();t.setHours(0,0,0,0);
+  var diff=Math.floor((d-t)/86400000);
+  return diff<0?'overdue':diff<=7?'soon':'ok';
+}
+function dueBadge(due){
+  if(!due)return '<span class="due-badge due-na">No date</span>';
+  var d=parseDue(due),t=new Date();t.setHours(0,0,0,0);
+  var diff=Math.floor((d-t)/86400000);
+  var lbl=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  if(diff<0)return '<span class="due-badge due-overdue">&#9679; '+lbl+'</span>';
+  if(diff<=7)return '<span class="due-badge due-soon">&#9679; '+lbl+'</span>';
+  return '<span class="due-badge due-ok">&#9679; '+lbl+'</span>';
+}
+function statusPill(s){
+  var m={'Ongoing':'s-ongoing','In Progress':'s-ongoing','In Process':'s-ongoing','Planned':'s-planned','Pending':'s-planned','Not Started':'s-planned','Idle':'s-planned','Scheduled':'s-planned','Complete':'s-complete','On Hold':'s-hold','Delayed':'s-delayed','Waiting on Response':'s-hold','High Priority':'s-delayed'};
+  return '<span class="status-pill '+(m[s]||'s-other')+'">'+esc(s||'—')+'</span>';
+}
+function priTag(p){
+  if(p==='High')return '<span class="pri-high">&#9650; High</span>';
+  if(p==='Medium')return '<span class="pri-med">&#9654; Med</span>';
+  if(p==='Low')return '<span class="pri-low">&#9660; Low</span>';
+  return '<span class="pri-none">—</span>';
+}
+function priSort(p){return p==='High'?0:p==='Medium'?1:p==='Low'?2:3;}
+
+function daysUntilDue(due){
+  if(!due) return null;
+  var d=parseDue(due),t=new Date();t.setHours(0,0,0,0);
+  return Math.floor((d-t)/86400000);
+}
+
+function dueBadgeWithCountdown(due, status){
+  if(!due) return '<span class="due-badge due-na">No date</span>';
+  var diff=daysUntilDue(due);
+  var d=parseDue(due);
+  var lbl=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  var badge='';
+  if(diff<0) badge='<span class="due-badge due-overdue">&#9679; '+lbl+'</span>';
+  else if(diff<=7) badge='<span class="due-badge due-soon">&#9679; '+lbl+'</span>';
+  else badge='<span class="due-badge due-ok">&#9679; '+lbl+'</span>';
+  // Countdown for non-complete active tasks
+  if(status!=='Complete'&&diff!==null&&diff>=0&&diff<=14){
+    var countdown=diff===0?'Due today':diff===1?'1 day left':diff+' days left';
+    badge+=' <span style="font-size:10px;font-weight:700;color:'+(diff<=3?'var(--red)':diff<=7?'var(--ylw)':'var(--txm)')+'">'+countdown+'</span>';
+  }
+  return badge;
+}
+
+function completedDaysAgo(completedAt){
+  if(!completedAt) return 999;
+  // completedAt is a timestamp string like "05/06/2026, 10:30 AM"
+  try{
+    var d=new Date(completedAt);
+    var t=new Date();t.setHours(0,0,0,0);
+    return Math.floor((t-d)/86400000);
+  }catch(e){return 0;}
+}
+function peopleCell(o,s){
+  var h='';
+  if(o)h+='<span class="owner-chip">'+esc(o)+'</span>';
+  if(s)h+=(o?'<br>':'')+'<span class="support-chip">'+esc(s)+'</span>';
+  if(!o&&!s)h='<span style="color:var(--txl);font-size:11px">—</span>';
+  return h;
+}
+function getStats(tab){
+  var tasks=state.tasks[tab]||{},total=0,overdue=0,soon=0,complete=0;
+  var t=new Date();t.setHours(0,0,0,0);
+  getTabBuckets(tab).forEach(function(b){
+    (tasks[b]||[]).forEach(function(tk){
+      total++;
+      if(tk.status==='Complete')complete++;
+      if(tk.due){var d=parseDue(tk.due),diff=Math.floor((d-t)/86400000);if(diff<0)overdue++;else if(diff<=7)soon++;}
+    });
+  });
+  return {total:total,overdue:overdue,soon:soon,complete:complete};
+}
+
+function renderTabs(){
+  var bar=document.getElementById('tabsBar');
+  bar.innerHTML='';
+  function mkBtn(label,tabId,extra,icon){
+    var btn=document.createElement('button');
+    btn.className='tab-btn'+(state.activeTab===tabId?' active':'')+(extra?' '+extra:'');
+    if(icon){btn.innerHTML=icon+' '+esc(label);}else{btn.textContent=label;}
+    btn.addEventListener('click',function(){switchTab(tabId);});
+    bar.appendChild(btn);
+  }
+  mkBtn('Dashboard','__dashboard__','dtab','&#9733;');
+  mkBtn('My Tasks','__mytasks__','mytab','&#128100;');
+  state.tabs.forEach(function(t){mkBtn(t,t,'',null);});
+  var add=document.createElement('button');
+  add.className='add-tab-btn'; add.title='Add tab'; add.textContent='+';
+  add.addEventListener('click',openAddTab);
+  bar.appendChild(add);
+}
+function switchTab(t){state.activeTab=t;curSearch='';curFilter='';curPriFilter='';sortCol='';sortDir=1;renderApp();}
+function setSort(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;}renderApp();}
+function sortTasks(arr){
+  if(!sortCol)return arr;
+  return arr.slice().sort(function(a,b){
+    var av=a[sortCol]||'',bv=b[sortCol]||'';
+    if(sortCol==='due'){av=av?parseDue(av).getTime():Infinity;bv=bv?parseDue(bv).getTime():Infinity;return sortDir*(av-bv);}
+    if(sortCol==='priority')return sortDir*(priSort(av)-priSort(bv));
+    return sortDir*String(av).localeCompare(String(bv));
+  });
+}
+
+function renderApp(){
+  renderTabs();
+  if(state.activeTab==='__dashboard__'){renderDashboard();return;}
+  if(state.activeTab==='__mytasks__'){renderMyTasks();return;}
+  var tab=state.activeTab;
+  ensureTab(tab);
+  var cols=getTabCols(tab).filter(function(c){return c.visible;});
+  var stats=getStats(tab);
+  var tss=(state.timestamps||{})[tab]||'Not yet saved';
+  var h='';
+
+  h+='<div class="tab-hdr-card"><div>';
+  h+='<div class="tab-hdr-name">'+esc(tab)+' \u2014 Task List</div>';
+  h+='<div class="tab-hdr-meta">Last updated: <b>'+esc(tss)+'</b></div></div>';
+  h+='<div class="tab-hdr-actions">';
+  h+='<button class="export-btn" id="hdr-export">&#8595; Export CSV</button>';
+  h+='<button class="export-btn" id="hdr-report" style="background:var(--blue-bg);border-color:var(--blue);color:var(--blue)">&#128438; Report</button>';
+  h+='<button class="lbtn" id="hdr-cfg">&#9881; Configure</button>';
+  h+='<button class="lbtn grey" id="hdr-del">Remove Tab</button>';
+  h+='</div></div>';
+
+  h+='<div class="stats-row">';
+  h+='<div class="stat-card"><div class="stat-lbl">Total</div><div class="stat-val">'+stats.total+'</div></div>';
+  h+='<div class="stat-card danger"><div class="stat-lbl">Past Due</div><div class="stat-val">'+stats.overdue+'</div></div>';
+  h+='<div class="stat-card warning"><div class="stat-lbl">Due This Week</div><div class="stat-val">'+stats.soon+'</div></div>';
+  h+='<div class="stat-card success"><div class="stat-lbl">Complete</div><div class="stat-val">'+stats.complete+'</div></div>';
+  h+='</div>';
+
+  // Count completed tasks for this tab
+  var completedCount=0;
+  getTabBuckets(tab).forEach(function(b){
+    ((state.tasks[tab]||{})[b]||[]).forEach(function(t){if(t.status==='Complete')completedCount++;});
+  });
+  var showComp=!!showCompleted[tab];
+  h+='<div class="filter-bar">';
+  h+='<input class="search-inp" id="main-search" placeholder="Search tasks..." value="'+esc(curSearch)+'">';
+  h+='<select class="flt-sel" id="main-status"><option value="">All statuses</option>';
+  STATUS_OPTS.forEach(function(s){h+='<option value="'+esc(s)+'"'+(curFilter===s?' selected':'')+'>'+esc(s)+'</option>';});
+  h+='</select>';
+  h+='<select class="flt-sel" id="main-pri"><option value="">All priorities</option>';
+  ['High','Medium','Low'].forEach(function(p){h+='<option value="'+p+'"'+(curPriFilter===p?' selected':'')+'>'+p+'</option>';});
+  h+='</select>';
+  h+='<button class="flt-sel" id="btn-toggle-complete" style="cursor:pointer;background:'+(showComp?'var(--grn-bg)':'var(--surf)')+';border:1px solid '+(showComp?'var(--grn-bdr)':'var(--bdr)')+';color:'+(showComp?'var(--grn)':'var(--txm)')+';">';
+  h+=(showComp?'&#9711;':'&#9651;')+' Completed ('+completedCount+')</button>';
+  h+='</div>';
+
+  getTabBuckets(tab).forEach(function(bucket){
+    var allBucketTasks=(state.tasks[tab][bucket]||[]);
+    var raw=allBucketTasks.filter(function(t){
+      if(t.status==='Complete'&&!showCompleted[tab]&&!curFilter) return false;
+      var q=curSearch.toLowerCase();
+      var mq=!q||[t.customer,t.notes,t.owner,t.support,t.status,t.meetingNotes,t.milestone].some(function(v){return String(v||'').toLowerCase().indexOf(q)>-1;});
+      return mq&&(!curFilter||t.status===curFilter)&&(!curPriFilter||t.priority===curPriFilter);
+    });
+    var tasks=sortTasks(raw);
+    var bId='bkt_'+bucket.replace(/[^a-zA-Z0-9]/g,'_');
+
+    h+='<div class="bucket-section" id="'+bId+'">';
+    h+='<div class="bucket-hdr" data-bid="'+bId+'">';
+    h+='<span class="bucket-title">'+esc(bucket)+'</span>';
+    h+='<span class="bucket-count">'+tasks.length+'</span>';
+    h+='<span class="bucket-spacer"></span>';
+    h+='<div class="bucket-hdr-btns"><button class="bkt-btn" data-bucket="'+esc(bucket)+'">+ Add Task</button></div>';
+    h+='</div><div class="bucket-body">';
+
+    if(!tasks.length){
+      h+='<div class="empty-state">No tasks here. Click "+ Add Task" to add one.</div>';
+    }else{
+      var showPeople=cols.some(function(c){return c.key==='owner'||c.key==='support';});
+      h+='<div style="overflow-x:auto"><table class="task-table"><thead><tr>';
+      cols.forEach(function(c){
+        if(c.key==='owner'||c.key==='support')return;
+        var sc=sortCol===c.key?(sortDir===1?' sort-asc':' sort-desc'):'';
+        h+='<th class="'+sc+'" data-sort="'+c.key+'">'+esc(c.label)+'</th>';
+      });
+            if(showPeople)h+='<th data-sort="owner">Owner / Support</th>';
+      h+='<th style="width:80px"></th></tr></thead><tbody>';
+      tasks.forEach(function(t){
+        h+='<tr>';
+        cols.forEach(function(c){
+          if(c.key==='owner'||c.key==='support')return;
+          h+='<td>';
+          if(c.key==='customer')h+='<div class="cust-name">'+esc(t.customer||'—')+'</div>';
+          else if(c.key==='due')h+=dueBadgeWithCountdown(t.due,t.status);
+          else if(c.key==='status')h+=statusPill(t.status);
+          else if(c.key==='priority')h+=priTag(t.priority);
+          else if(c.key==='meetingNotes'&&t.meetingNotes)h+='<div class="sub-note">'+esc(t.meetingNotes)+'</div>';
+          else if(c.key==='milestone'&&t.milestone)h+='<div style="font-size:11px;color:var(--blue)">'+esc(t.milestone)+'</div>';
+          else h+='<div style="line-height:1.5">'+esc(t[c.key]||'')+'</div>';
+          h+='</td>';
+        });
+        if(showPeople)h+='<td>'+peopleCell(t.owner,t.support)+'</td>';
+        h+='<td><div class="row-acts">';
+        h+='<button class="icon-btn" title="History" data-action="history" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#128203;</button>';
+        h+='<button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#9998;</button>';
+        h+='<button class="icon-btn del" title="Delete" data-action="delete" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#10005;</button>';
+        h+='</div></td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+
+    // Completed tasks section within each bucket
+    if(showCompleted[tab]){
+      var completedHere=(state.tasks[tab][bucket]||[]).filter(function(t){return t.status==='Complete';});
+      if(completedHere.length>0){
+        h+='<div style="background:var(--surf2);border-top:1px solid var(--bdr);padding:0">';
+        h+='<div style="padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txl)">Completed ('+completedHere.length+')</div>';
+        h+='<div style="overflow-x:auto"><table class="task-table" style="opacity:.6"><tbody>';
+        completedHere.forEach(function(t){
+          var daysAgo=t.completedAt?completedDaysAgo(t.completedAt):0;
+          var agoLabel=daysAgo===0?'today':daysAgo===1?'yesterday':daysAgo+'d ago';
+          h+='<tr style="background:var(--surf2)">';
+          h+='<td><div class="cust-name" style="text-decoration:line-through;color:var(--txm)">'+esc(t.customer||'—')+'</div></td>';
+          h+='<td style="font-size:11px;color:var(--txl)">'+esc((t.notes||'').slice(0,80))+'</td>';
+          h+='<td>'+(t.owner?'<span class="owner-chip" style="opacity:.6">'+esc(t.owner)+'</span>':'')+'</td>';
+          h+='<td><span class="status-pill s-complete">Complete</span></td>';
+          h+='<td style="font-size:11px;color:var(--txl)">'+agoLabel+'</td>';
+          h+='<td><div class="row-acts"><button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#9998;</button></div></td>';
+          h+='</tr>';
+        });
+        h+='</tbody></table></div></div>';
+      }
+    }
+
+    h+='</div></div>';
+  });
+
+  var content=document.getElementById('appContent');
+  content.innerHTML=h;
+
+  // Wire up all event listeners after innerHTML set
+  (function(t){
+    var e=document.getElementById('hdr-export');
+    var c=document.getElementById('hdr-cfg');
+    var d=document.getElementById('hdr-del');
+    if(e)e.onclick=function(){exportCSV(t);};
+  var rptBtn=document.getElementById('hdr-report');
+  if(rptBtn)rptBtn.onclick=function(){openReport();};
+    if(c)c.onclick=function(){openCfg(t);};
+    if(d)d.onclick=function(){confirmDeleteTab(t);};
+  })(tab);
+
+  var btc=document.getElementById('btn-toggle-complete');
+  if(btc)btc.addEventListener('click',function(){showCompleted[tab]=!showCompleted[tab];renderApp();});
+  var ms=document.getElementById('main-search');
+  if(ms)ms.addEventListener('input',function(){curSearch=this.value;renderApp();});
+  var mst=document.getElementById('main-status');
+  if(mst)mst.addEventListener('change',function(){curFilter=this.value;renderApp();});
+  var mp=document.getElementById('main-pri');
+  if(mp)mp.addEventListener('change',function(){curPriFilter=this.value;renderApp();});
+
+  // Bucket headers toggle
+  document.querySelectorAll('.bucket-hdr').forEach(function(el){
+    el.addEventListener('click',function(e){
+      if(e.target.closest('.bucket-hdr-btns'))return;
+      toggleBucket(this.getAttribute('data-bid'));
+    });
+  });
+
+  // Bucket add task buttons
+  document.querySelectorAll('.bkt-btn').forEach(function(btn){
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      openAddTask(this.getAttribute('data-bucket'));
+    });
+  });
+
+  // Column sort headers
+  document.querySelectorAll('.task-table th[data-sort]').forEach(function(th){
+    th.addEventListener('click',function(){setSort(this.getAttribute('data-sort'));});
+  });
+
+  // Row action buttons
+  document.querySelectorAll('[data-action]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var action=this.getAttribute('data-action');
+      var id=this.getAttribute('data-id');
+      var bucket=this.getAttribute('data-bucket');
+      if(action==='history')showHistory(id,bucket);
+      else if(action==='edit')openEditTask(id,bucket);
+      else if(action==='delete')deleteTask(id,bucket);
+    });
+  });
+}
+
+function toggleBucket(id){var el=document.getElementById(id);if(el)el.classList.toggle('bucket-collapsed');}
+
+function buildTaskForm(tab,task){
+  var cols=getTabCols(tab);
+  var h='<div class="form-grid">';
+  cols.forEach(function(c){
+    if(!c.visible)return;
+    var val=task&&task[c.key]!=null?task[c.key]:'';
+    var isFull=(c.type==='textarea');
+    h+='<div class="form-group'+(isFull?' full':'')+'"><label class="form-label">'+esc(c.label)+'</label>';
+    if(c.type==='textarea')h+='<textarea class="form-textarea" id="tf_'+c.key+'" maxlength="2000">'+esc(val)+'</textarea>';
+    else if(c.type==='status'){
+      h+='<select class="form-select" id="tf_'+c.key+'">';
+      STATUS_OPTS.forEach(function(s){h+='<option'+(val===s?' selected':'')+'>'+s+'</option>';});
+      h+='</select>';
+    }else if(c.type==='priority'){
+      h+='<select class="form-select" id="tf_'+c.key+'"><option value="">— None —</option>';
+      ['High','Medium','Low'].forEach(function(p){h+='<option'+(val===p?' selected':'')+'>'+p+'</option>';});
+      h+='</select>';
+    }else if(c.type==='date'){
+      h+='<input type="date" class="form-input" id="tf_'+c.key+'" value="'+esc(val)+'">';
+    }else if(c.type==='ac'){
+      h+='<div class="ac-wrap"><input type="text" class="form-input" id="tf_'+c.key+'" value="'+esc(val)+'" autocomplete="off" placeholder="'+esc(c.label)+'"></div>';
+    }else{
+      h+='<input type="text" class="form-input" id="tf_'+c.key+'" value="'+esc(val)+'" placeholder="'+esc(c.label)+'">';
+    }
+    h+='</div>';
+  });
+  return h+'</div>';
+}
+function openAddTask(bucket){
+  editingTask=null;editingBucket=bucket;
+  document.getElementById('modalTitle').textContent='Add Task \u2014 '+bucket;
+  document.getElementById('taskFormFields').innerHTML=buildTaskForm(state.activeTab,null);
+  document.getElementById('taskModal').classList.add('open');
+  getTabCols(state.activeTab).forEach(function(c){if(c.type==='ac')makeAC(document.getElementById('tf_'+c.key));});
+}
+function openEditTask(id,bucket){
+  var arr=(state.tasks[state.activeTab]||{})[bucket]||[],found=null;
+  for(var i=0;i<arr.length;i++){if(arr[i].id===id){found=arr[i];break;}}
+  if(!found)return;
+  editingTask=id;editingBucket=bucket;
+  document.getElementById('modalTitle').textContent='Edit Task';
+  document.getElementById('taskFormFields').innerHTML=buildTaskForm(state.activeTab,found);
+  document.getElementById('taskModal').classList.add('open');
+  getTabCols(state.activeTab).forEach(function(c){if(c.type==='ac')makeAC(document.getElementById('tf_'+c.key));});
+}
+function saveTask(){
+  var tab=state.activeTab,cols=getTabCols(tab),isNew=!editingTask;
+  var existing=null;
+  if(!isNew){var a0=(state.tasks[tab][editingBucket]||[]);for(var i=0;i<a0.length;i++){if(a0[i].id===editingTask){existing=a0[i];break;}}}
+  var task={id:editingTask||uid(),changelog:existing?(existing.changelog||[]):[{t:nowTs(),msg:(currentUser?currentUser+' created task':'Task created')}],completedAt:existing?existing.completedAt:null};
+  var changes=[];
+  cols.forEach(function(c){
+    if(!c.visible)return;
+    var el=document.getElementById('tf_'+c.key);
+    if(el){var nv=el.value.trim();task[c.key]=nv;if(!isNew&&existing&&String(existing[c.key]||'')!==nv)changes.push(c.label+' updated');}
+  });
+  if(!isNew&&changes.length)task.changelog.push({t:nowTs(),msg:(currentUser?currentUser+': ':'')+changes.join(', ')});
+  // Track when task was completed
+  if(task.status==='Complete'&&(!existing||existing.status!=='Complete')){
+    task.completedAt=nowTs();
+  } else if(task.status!=='Complete'){
+    task.completedAt=null;
+  } else if(existing){
+    task.completedAt=existing.completedAt||null;
+  }
+  if(task.changelog.length>20)task.changelog=task.changelog.slice(-20);
+  ensureTab(tab);
+  if(isNew){state.tasks[tab][editingBucket].push(task);}
+  else{var a1=state.tasks[tab][editingBucket];for(var j=0;j<a1.length;j++){if(a1[j].id===editingTask){a1[j]=task;break;}}}
+  persist();closeModal('taskModal');renderApp();showToast(isNew?'Task added.':'Task updated.');
+}
+function deleteTask(id,bucket){
+  if(!confirm('Delete this task?'))return;
+  state.tasks[state.activeTab][bucket]=(state.tasks[state.activeTab][bucket]||[]).filter(function(x){return x.id!==id;});
+  persist();renderApp();showToast('Task deleted.');
+}
+function showHistory(id,bucket){
+  var arr=(state.tasks[state.activeTab]||{})[bucket]||[],found=null;
+  for(var i=0;i<arr.length;i++){if(arr[i].id===id){found=arr[i];break;}}
+  if(!found)return;
+  var log=found.changelog||[];
+  var h=log.length?'':'<p style="color:var(--txl);font-size:13px">No history yet.</p>';
+  log.slice().reverse().forEach(function(e){h+='<div class="changelog-entry"><span class="changelog-time">'+esc(e.t)+'</span><span>'+esc(e.msg)+'</span></div>';});
+  document.getElementById('histModalBody').innerHTML='<p style="font-weight:600;margin-bottom:12px">'+esc(found.customer||'Task')+'</p>'+h;
+  document.getElementById('histModal').classList.add('open');
+}
+
+function renderMyTasks(){
+  var h='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.03em;margin-bottom:16px">&#128100; My Tasks</div>';
+  h+='<div class="my-tasks-bar"><label class="form-label" style="white-space:nowrap">Filter by person:</label>';
+  h+='<div class="ac-wrap" style="flex:1;max-width:300px"><input type="text" class="search-inp" id="myTasksInp" placeholder="Start typing a name..." autocomplete="off" style="width:100%;max-width:100%"></div>';
+  h+='<span id="myTasksCount" style="font-size:12px;color:var(--txm)"></span></div>';
+  h+='<div class="dash-table-wrap"><div id="myTasksTable"><div class="empty-state">Enter a name above to see all their tasks across every PM tab.</div></div></div>';
+  document.getElementById('appContent').innerHTML=h;
+  var inp=document.getElementById('myTasksInp');
+  inp.value=myTasksName;
+  inp.addEventListener('input',function(){myTasksName=inp.value;updateMyTasksTable();});
+  if(!inp._acDone){
+    inp._acDone=true;
+    var wrap=inp.parentNode;
+    var list=document.createElement('div');list.className='ac-list';wrap.appendChild(list);
+    var acIdx=-1;
+    function showList(names){
+      list.innerHTML='';acIdx=-1;
+      if(!names.length){list.style.display='none';return;}
+      names.slice(0,8).forEach(function(name){
+        var item=document.createElement('div');item.className='ac-item';item.textContent=name;
+        item.addEventListener('mousedown',function(e){e.preventDefault();inp.value=name;myTasksName=name;list.style.display='none';inp.focus();updateMyTasksTable();});
+        list.appendChild(item);
+      });
+      list.style.display='block';
+    }
+    inp.addEventListener('input',function(){
+      var q=inp.value.trim().toLowerCase();
+      if(q.length<1){list.style.display='none';return;}
+      showList(getKnownNames().filter(function(n){return n.toLowerCase().indexOf(q)>-1&&n.toLowerCase()!==q;}));
+    });
+    inp.addEventListener('keydown',function(e){
+      var items=list.querySelectorAll('.ac-item');if(!items.length)return;
+      if(e.key==='ArrowDown'){e.preventDefault();acIdx=Math.min(acIdx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('sel',i===acIdx);});}
+      else if(e.key==='ArrowUp'){e.preventDefault();acIdx=Math.max(acIdx-1,0);items.forEach(function(el,i){el.classList.toggle('sel',i===acIdx);});}
+      else if(e.key==='Enter'&&acIdx>=0){e.preventDefault();inp.value=items[acIdx].textContent;myTasksName=inp.value;list.style.display='none';inp.focus();updateMyTasksTable();}
+      else if(e.key==='Escape'){list.style.display='none';}
+    });
+    inp.addEventListener('blur',function(){setTimeout(function(){list.style.display='none';},200);});
+  }
+  if(myTasksName)updateMyTasksTable();
+}
+function updateMyTasksTable(){
+  var q=myTasksName.trim().toLowerCase();
+  var tableEl=document.getElementById('myTasksTable'),countEl=document.getElementById('myTasksCount');
+  if(!tableEl)return;
+  if(!q){tableEl.innerHTML='<div class="empty-state">Enter a name above to see all their tasks across every PM tab.</div>';if(countEl)countEl.textContent='';return;}
+  var results=[];
+  state.tabs.forEach(function(tab){
+    getTabBuckets(tab).forEach(function(bucket){
+      ((state.tasks[tab]||{})[bucket]||[]).forEach(function(t){
+        var om=(t.owner||'').toLowerCase().indexOf(q)>-1;
+        var sm=(t.support||'').toLowerCase().indexOf(q)>-1;
+        if(om||sm)results.push({pm:tab,bucket:bucket,task:t,role:om?'Owner':'Supporting'});
+      });
+    });
+  });
+  if(countEl)countEl.textContent=results.length+' task'+(results.length!==1?'s':'');
+  if(!results.length){tableEl.innerHTML='<div class="empty-state">No tasks found for "'+esc(myTasksName)+'".</div>';return;}
+  var h='<table class="dash-table"><thead><tr><th>PM Tab</th><th>Bucket</th><th>Customer</th><th>Role</th><th>Owner</th><th>Supporting</th><th>Priority</th><th>Status</th><th>Due</th></tr></thead><tbody>';
+  results.forEach(function(r){
+    var t=r.task;
+    h+='<tr><td><span class="pm-badge">'+esc(r.pm)+'</span></td><td><span style="font-size:11px;color:var(--txm)">'+esc(r.bucket)+'</span></td>';
+    h+='<td><div class="cust-name">'+esc(t.customer||'—')+'</div>'+(t.notes?'<div class="sub-note">'+esc(t.notes.slice(0,70))+'</div>':'')+'</td>';
+    h+='<td><span style="font-size:11px;font-weight:700;color:'+(r.role==='Owner'?'var(--gig)':'var(--blue)')+'">'+esc(r.role)+'</span></td>';
+    h+='<td>'+(t.owner?'<span class="owner-chip">'+esc(t.owner)+'</span>':'<span style="color:var(--txl)">—</span>')+'</td>';
+    h+='<td>'+(t.support?'<span class="support-chip">'+esc(t.support)+'</span>':'<span style="color:var(--txl)">—</span>')+'</td>';
+    h+='<td>'+priTag(t.priority)+'</td><td>'+statusPill(t.status)+'</td><td>'+dueBadge(t.due)+'</td></tr>';
+  });
+  tableEl.innerHTML=h+'</tbody></table>';
+}
+
+function exportCSV(tab){
+  ensureTab(tab);
+  var cols=getTabCols(tab).filter(function(c){return c.visible;});
+  var rows=[['Bucket'].concat(cols.map(function(c){return c.label;}))];
+  getTabBuckets(tab).forEach(function(b){
+    (state.tasks[tab][b]||[]).forEach(function(t){
+      var row=[b];cols.forEach(function(c){row.push(String(t[c.key]||'').replace(/\n/g,' '));});rows.push(row);
+    });
+  });
+  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='GI_Tasks_'+tab.replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();showToast('Exported.');
+}
+function exportAllCSV(){
+  var all=getAllTasks();
+  var rows=[['PM Tab','Bucket','Customer','Details','Owner','Supporting','Priority','Status','Due Date','Next Milestone','Meeting Notes']];
+  all.forEach(function(r){var t=r.task;rows.push([r.pm,r.bucket,t.customer||'',t.notes||'',t.owner||'',t.support||'',t.priority||'',t.status||'',t.due||'',t.milestone||'',t.meetingNotes||'']);});
+  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/\n/g,' ').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='GI_AllTasks_'+new Date().toISOString().slice(0,10)+'.csv';a.click();showToast('All tasks exported.');
+}
+
+function openCfg(tab){
+  cfgCurrentTab=tab;
+  document.getElementById('cfgModalTitle').textContent='Configure: '+tab;
+  renderCfgBody(tab);document.getElementById('cfgModal').classList.add('open');
+}
+function renameTab(){
+  var inp=document.getElementById('renameTabInp');if(!inp)return;
+  var oldName=cfgCurrentTab,newName=inp.value.trim();
+  if(!newName){alert('Name cannot be empty.');return;}
+  if(newName===oldName){closeModal('cfgModal');return;}
+  if(state.tabs.indexOf(newName)!==-1){alert('A tab with that name already exists.');return;}
+  var idx=state.tabs.indexOf(oldName);if(idx===-1)return;
+  state.tabs[idx]=newName;
+  state.tasks[newName]=state.tasks[oldName];delete state.tasks[oldName];
+  if(state.tabCols[oldName]){state.tabCols[newName]=state.tabCols[oldName];delete state.tabCols[oldName];}
+  if(state.tabBuckets[oldName]){state.tabBuckets[newName]=state.tabBuckets[oldName];delete state.tabBuckets[oldName];}
+  if(state.timestamps[oldName]){state.timestamps[newName]=state.timestamps[oldName];delete state.timestamps[oldName];}
+  state.activeTab=newName;cfgCurrentTab=newName;
+  persist();closeModal('cfgModal');renderApp();showToast('Tab renamed to "'+newName+'".');
+}
+function renderCfgBody(tab){
+  var cols=getTabCols(tab),buckets=getTabBuckets(tab);
+  var defaultBuckets=TAB_BUCKETS[tab]||GLOBAL_BUCKETS;
+  var h='<div class="config-section"><div class="config-section-title">Rename This Tab</div>';
+  h+='<div class="config-add-row"><input class="config-inp" id="renameTabInp" value="'+esc(tab)+'" placeholder="Tab name" style="flex:2">';
+  h+='<button class="config-add-btn" onclick="renameTab()">Rename</button></div></div>';
+  h+='<div class="config-section"><div class="config-section-title">Columns</div><div class="config-list">';
+  cols.forEach(function(c,i){
+    h+='<div class="config-item"><input type="checkbox" id="cv_'+i+'" '+(c.visible?'checked':'')+' onchange="toggleColVis(\''+esc(tab)+'\','+i+',this.checked)">';
+    h+='<label for="cv_'+i+'" class="config-item-name" style="cursor:pointer">'+esc(c.label)+'</label>';
+    h+='<span class="config-item-type">'+esc(c.type)+'</span>';
+    if(i>=GLOBAL_COLUMNS.length)h+='<button class="icon-btn del" data-colidx="'+i+'">&#10005;</button>';
+    h+='</div>';
+  });
+  h+='</div><div class="config-add-row"><input class="config-inp" id="newColName" placeholder="Column name">';
+  h+='<select class="config-sel" id="newColType"><option value="text">Text</option><option value="textarea">Text Area</option><option value="date">Date</option></select>';
+  h+='<button class="config-add-btn" id="btn-add-col">+ Add Column</button></div>';
+  h+='<span class="reset-link" id="btn-reset-cols">Reset to global defaults</span></div>';
+  h+='<div class="config-section" style="margin-top:20px"><div class="config-section-title">Task Buckets</div><div class="config-list">';
+  buckets.forEach(function(b,i){
+    h+='<div class="config-item"><span class="config-item-name">'+esc(b)+'</span>';
+    if(i>=defaultBuckets.length)h+='<button class="icon-btn del" data-rmbucket="'+esc(b)+'">&#10005;</button>';
+    else h+='<span style="font-size:10px;color:var(--txl)">default</span>';
+    h+='</div>';
+  });
+  h+='</div><div class="config-add-row"><input class="config-inp" id="newBucketName" placeholder="New bucket name">';
+  h+='<button class="config-add-btn" id="btn-add-bucket">+ Add Bucket</button></div>';
+  h+='<span class="reset-link" id="btn-reset-buckets">Reset to global defaults</span></div>';
+  document.getElementById('cfgModalBody').innerHTML=h;
+
+  // Wire config buttons
+  var t=tab;
+  document.getElementById('btn-add-col').onclick=function(){addCustomCol(t);};
+  document.getElementById('btn-reset-cols').onclick=function(){resetCols(t);};
+  document.getElementById('btn-add-bucket').onclick=function(){addBucket(t);};
+  document.getElementById('btn-reset-buckets').onclick=function(){resetBuckets(t);};
+  document.querySelectorAll('[data-colidx]').forEach(function(btn){
+    btn.onclick=function(){removeCustomCol(t,parseInt(this.getAttribute('data-colidx')));};
+  });
+  document.querySelectorAll('[data-rmbucket]').forEach(function(btn){
+    btn.onclick=function(){removeBucket(t,this.getAttribute('data-rmbucket'));};
+  });
+}
+function toggleColVis(tab,idx,val){if(!state.tabCols[tab])state.tabCols[tab]=JSON.parse(JSON.stringify(getTabCols(tab)));state.tabCols[tab][idx].visible=val;persist();}
+function addCustomCol(tab){
+  var name=document.getElementById('newColName').value.trim(),type=document.getElementById('newColType').value;
+  if(!name){alert('Column name required.');return;}
+  if(!state.tabCols[tab])state.tabCols[tab]=JSON.parse(JSON.stringify(getTabCols(tab)));
+  state.tabCols[tab].push({key:'c_'+uid(),label:name,type:type,visible:true,custom:true});
+  persist();renderCfgBody(tab);
+}
+function removeCustomCol(tab,idx){if(!state.tabCols[tab])state.tabCols[tab]=JSON.parse(JSON.stringify(getTabCols(tab)));state.tabCols[tab].splice(idx,1);persist();renderCfgBody(tab);}
+function resetCols(tab){if(!confirm('Reset columns to global defaults?'))return;delete state.tabCols[tab];persist();renderCfgBody(tab);showToast('Columns reset.');}
+function addBucket(tab){
+  var name=document.getElementById('newBucketName').value.trim();if(!name){alert('Bucket name required.');return;}
+  if(!state.tabBuckets[tab])state.tabBuckets[tab]=getTabBuckets(tab).slice();
+  if(state.tabBuckets[tab].indexOf(name)!==-1){alert('Already exists.');return;}
+  state.tabBuckets[tab].push(name);ensureTab(tab);persist();renderCfgBody(tab);showToast('Bucket added.');
+}
+function removeBucket(tab,bucket){
+  var tasks=(state.tasks[tab]||{})[bucket]||[];
+  if(tasks.length&&!confirm('Delete bucket "'+bucket+'" and its '+tasks.length+' task(s)?'))return;
+  if(!state.tabBuckets[tab])state.tabBuckets[tab]=getTabBuckets(tab).slice();
+  state.tabBuckets[tab]=state.tabBuckets[tab].filter(function(b){return b!==bucket;});
+  if(state.tasks[tab])delete state.tasks[tab][bucket];
+  persist();renderCfgBody(tab);showToast('Bucket removed.');
+}
+function resetBuckets(tab){if(!confirm('Reset buckets to global defaults?'))return;delete state.tabBuckets[tab];persist();renderCfgBody(tab);showToast('Buckets reset.');}
+
+function openAddTab(){document.getElementById('fTabName').value='';document.getElementById('tabModal').classList.add('open');}
+function saveTab(){
+  var name=document.getElementById('fTabName').value.trim();
+  if(!name){alert('Tab name required.');return;}
+  if(state.tabs.indexOf(name)!==-1){alert('Already exists.');return;}
+  state.tabs.push(name);state.tasks[name]={};
+  GLOBAL_BUCKETS.forEach(function(b){state.tasks[name][b]=[];});
+  state.activeTab=name;persist();closeModal('tabModal');renderApp();showToast('Tab "'+name+'" created.');
+}
+function confirmDeleteTab(tab){
+  if(state.tabs.length<=1){alert('Cannot remove the last tab.');return;}
+  if(!confirm('Remove tab "'+tab+'" and ALL its tasks?'))return;
+  state.tabs=state.tabs.filter(function(t){return t!==tab;});
+  delete state.tasks[tab];delete state.tabCols[tab];delete state.tabBuckets[tab];
+  state.activeTab=state.tabs[0];persist();renderApp();showToast('Tab removed.');
+}
+
+function getAllTasks(){
+  var all=[];
+  state.tabs.forEach(function(tab){
+    getTabBuckets(tab).forEach(function(bucket){
+      ((state.tasks[tab]||{})[bucket]||[]).forEach(function(t){all.push({pm:tab,bucket:bucket,task:t});});
+    });
+  });
+  return all;
+}
+function destroyCharts(){Object.keys(chartInstances).forEach(function(k){try{chartInstances[k].destroy();}catch(e){}});chartInstances={};}
+
+function renderDashboard(){
+  destroyCharts();
+  var all=getAllTasks(),today=new Date();today.setHours(0,0,0,0);
+  var total=all.length,overdue=0,soon=0,complete=0;
+  all.forEach(function(r){var t=r.task;if(t.status==='Complete')complete++;if(t.due){var d=parseDue(t.due),diff=Math.floor((d-today)/86400000);if(diff<0)overdue++;else if(diff<=7)soon++;}});
+  var allPMs=state.tabs.slice(),allBuckets=[];
+  state.tabs.forEach(function(tab){getTabBuckets(tab).forEach(function(b){if(allBuckets.indexOf(b)===-1)allBuckets.push(b);});});
+
+  var h='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:700;color:var(--gig);text-transform:uppercase;letter-spacing:.03em;margin-bottom:16px">&#9733; Global Dashboard</div>';
+  h+='<div class="dash-stats">';
+  h+='<div class="dash-stat"><div class="dash-stat-val">'+total+'</div><div class="dash-stat-lbl">Total Tasks</div></div>';
+  h+='<div class="dash-stat danger"><div class="dash-stat-val">'+overdue+'</div><div class="dash-stat-lbl">Past Due</div></div>';
+  h+='<div class="dash-stat warning"><div class="dash-stat-val">'+soon+'</div><div class="dash-stat-lbl">Due This Week</div></div>';
+  h+='<div class="dash-stat success"><div class="dash-stat-val">'+complete+'</div><div class="dash-stat-lbl">Complete</div></div>';
+  h+='</div>';
+  h+='<div class="dash-grid">';
+  h+='<div class="dash-card"><div class="dash-card-title">Tasks by PM</div><div class="chart-wrap"><canvas id="chartPM" role="img" aria-label="Tasks by PM"></canvas></div></div>';
+  h+='<div class="dash-card"><div class="dash-card-title">Status Breakdown</div><div class="chart-wrap"><canvas id="chartStatus" role="img" aria-label="Status"></canvas></div></div>';
+  h+='<div class="dash-card"><div class="dash-card-title">Due Date Health by PM</div><div class="chart-wrap"><canvas id="chartDue" role="img" aria-label="Due health"></canvas></div></div>';
+  h+='</div>';
+  h+='<div class="dash-filters">';
+  h+='<input class="search-inp" id="dash-search" placeholder="Search all tasks..." value="'+esc(dashSearch)+'" style="max-width:200px">';
+  h+='<select class="flt-sel" id="dash-pm"><option value="">All PMs</option>'+allPMs.map(function(p){return '<option value="'+esc(p)+'"'+(dashPM===p?' selected':'')+'>'+esc(p)+'</option>';}).join('')+'</select>';
+  h+='<select class="flt-sel" id="dash-bucket"><option value="">All Buckets</option>'+allBuckets.map(function(b){return '<option value="'+esc(b)+'"'+(dashBucket===b?' selected':'')+'>'+esc(b)+'</option>';}).join('')+'</select>';
+  h+='<select class="flt-sel" id="dash-status"><option value="">All Statuses</option>'+STATUS_OPTS.map(function(s){return '<option value="'+esc(s)+'"'+(dashStatus===s?' selected':'')+'>'+esc(s)+'</option>';}).join('')+'</select>';
+  h+='<select class="flt-sel" id="dash-due"><option value="">All Due Dates</option><option value="overdue">Past Due</option><option value="soon">Due Soon</option><option value="ok">On Track</option><option value="na">No Date</option></select>';
+  h+='<select class="flt-sel" id="dash-pri"><option value="">All Priorities</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>';
+  h+='<button class="export-btn" id="dash-export-all">&#8595; Export All CSV</button>';
+  h+='<button class="export-btn" id="dash-report" style="background:var(--blue-bg);border-color:var(--blue);color:var(--blue)">&#128438; Generate Report</button>';
+  h+='</div><div class="dash-table-wrap"><div id="dashTableInner"></div></div>';
+
+  document.getElementById('appContent').innerHTML=h;
+
+  document.getElementById('dash-search').addEventListener('input',function(){dashSearch=this.value;refreshDashTable();});
+  document.getElementById('dash-pm').addEventListener('change',function(){dashPM=this.value;refreshDashTable();});
+  document.getElementById('dash-bucket').addEventListener('change',function(){dashBucket=this.value;refreshDashTable();});
+  document.getElementById('dash-status').addEventListener('change',function(){dashStatus=this.value;refreshDashTable();});
+  document.getElementById('dash-due').addEventListener('change',function(){dashDue=this.value;refreshDashTable();});
+  document.getElementById('dash-pri').addEventListener('change',function(){dashPri=this.value;refreshDashTable();});
+  document.getElementById('dash-export-all').addEventListener('click',exportAllCSV);
+  var dRpt=document.getElementById('dash-report');
+  if(dRpt)dRpt.addEventListener('click',openReport);
+
+  setTimeout(function(){buildCharts(all,today,allPMs);refreshDashTable();},50);
+}
+
+function buildCharts(all,today,allPMs){
+  var pmC={};allPMs.forEach(function(p){pmC[p]=0;});all.forEach(function(r){pmC[r.pm]=(pmC[r.pm]||0)+1;});
+  var c1=document.getElementById('chartPM');
+  if(c1)chartInstances.pm=new Chart(c1,{type:'bar',data:{labels:allPMs,datasets:[{label:'Tasks',data:allPMs.map(function(p){return pmC[p];}),backgroundColor:'#3a7d1e',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  var sC={};all.forEach(function(r){var s=r.task.status||'Unknown';sC[s]=(sC[s]||0)+1;});
+  var sL=Object.keys(sC),sD=sL.map(function(k){return sC[k];});
+  var c2=document.getElementById('chartStatus');
+  if(c2)chartInstances.status=new Chart(c2,{type:'doughnut',data:{labels:sL,datasets:[{data:sD,backgroundColor:['#3a7d1e','#1a4fbf','#8a6200','#6b3db5','#1a6b2a','#b93328','#888','#555','#aaa','#c97d20'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:10}}}}}});
+  var pmOv={},pmSo={},pmOk={},pmNa={};
+  allPMs.forEach(function(p){pmOv[p]=0;pmSo[p]=0;pmOk[p]=0;pmNa[p]=0;});
+  all.forEach(function(r){var cl=dueClass(r.task.due);if(cl==='overdue')pmOv[r.pm]++;else if(cl==='soon')pmSo[r.pm]++;else if(cl==='ok')pmOk[r.pm]++;else pmNa[r.pm]++;});
+  var c3=document.getElementById('chartDue');
+  if(c3)chartInstances.due=new Chart(c3,{type:'bar',data:{labels:allPMs,datasets:[{label:'Past Due',data:allPMs.map(function(p){return pmOv[p];}),backgroundColor:'#b93328',borderRadius:2},{label:'Due Soon',data:allPMs.map(function(p){return pmSo[p];}),backgroundColor:'#d4a017',borderRadius:2},{label:'On Track',data:allPMs.map(function(p){return pmOk[p];}),backgroundColor:'#3a7d1e',borderRadius:2},{label:'No Date',data:allPMs.map(function(p){return pmNa[p];}),backgroundColor:'#bbb',borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}},plugins:{legend:{labels:{boxWidth:10,font:{size:11}}}}}});
+}
+
+function refreshDashTable(){
+  var all=getAllTasks(),q=dashSearch.toLowerCase();
+  var filtered=all.filter(function(r){
+    var t=r.task;
+    var mq=!q||[t.customer,t.notes,t.owner,t.support,t.status,r.pm,r.bucket].some(function(v){return String(v||'').toLowerCase().indexOf(q)>-1;});
+    var mpm=!dashPM||r.pm===dashPM,mb=!dashBucket||r.bucket===dashBucket;
+    var ms=!dashStatus||t.status===dashStatus,mp=!dashPri||t.priority===dashPri;
+    var md=true;if(dashDue){var cl=dueClass(t.due);md=(dashDue==='na'?!t.due:cl===dashDue);}
+    return mq&&mpm&&mb&&ms&&mp&&md;
+  });
+  var h='<table class="dash-table"><thead><tr><th>PM</th><th>Bucket</th><th>Customer</th><th>Owner</th><th>Supporting</th><th>Priority</th><th>Status</th><th>Due</th></tr></thead><tbody>';
+  if(!filtered.length){h+='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--txl)">No tasks match filters.</td></tr>';}
+  else{
+    filtered.forEach(function(r){
+      var t=r.task;
+      h+='<tr><td><span class="pm-badge">'+esc(r.pm)+'</span></td><td><span style="font-size:11px;color:var(--txm)">'+esc(r.bucket)+'</span></td>';
+      h+='<td><div class="cust-name">'+esc(t.customer||'—')+'</div>'+(t.notes?'<div class="sub-note">'+esc(t.notes.slice(0,70))+'</div>':'')+'</td>';
+      h+='<td>'+(t.owner?'<span class="owner-chip">'+esc(t.owner)+'</span>':'—')+'</td>';
+      h+='<td>'+(t.support?'<span class="support-chip">'+esc(t.support)+'</span>':'—')+'</td>';
+      h+='<td>'+priTag(t.priority)+'</td><td>'+statusPill(t.status)+'</td><td>'+dueBadge(t.due)+'</td></tr>';
+    });
+  }
+  var el=document.getElementById('dashTableInner');if(el)el.innerHTML=h+'</tbody></table>';
+}
+
+
+function loadReportDefaults(){
+  try{
+    var r=localStorage.getItem(REPORT_STORE);
+    if(r) return JSON.parse(r);
+  }catch(e){}
+  return {
+    title:'General Inspection Task Report',
+    subtitle:'',
+    scope:'all',
+    selectedTabs:[],
+    includeStats:true,
+    includeCharts:true,
+    includeTables:true,
+    includeCompleted:false,
+    priorities:['High','Medium','Low'],
+    statuses:[]
+  };
+}
+function saveReportDefaults(cfg){
+  try{localStorage.setItem(REPORT_STORE,JSON.stringify(cfg));}catch(e){}
+}
+
+function openReport(){
+  var cfg=loadReportDefaults();
+  var h='<div class="modal-title">Generate Report</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:16px">';
+
+  // Title/subtitle
+  h+='<div class="config-section"><div class="config-section-title">Report Header</div>';
+  h+='<div class="form-group" style="margin-bottom:8px"><label class="form-label">Report Title</label>';
+  h+='<input type="text" class="form-input" id="rpt-title" value="'+esc(cfg.title)+'" maxlength="100"></div>';
+  h+='<div class="form-group"><label class="form-label">Subtitle / Note for Management (optional)</label>';
+  h+='<input type="text" class="form-input" id="rpt-subtitle" value="'+esc(cfg.subtitle||'')+'" maxlength="200"></div>';
+  h+='</div>';
+
+  // Scope
+  h+='<div class="config-section"><div class="config-section-title">Scope</div>';
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
+  h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">';
+  h+='<input type="radio" name="rpt-scope" value="all"'+(cfg.scope==='all'?' checked':'')+' onchange="rptScopeChange(this)"> All PM Tabs</label>';
+  h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">';
+  h+='<input type="radio" name="rpt-scope" value="select"'+(cfg.scope==='select'?' checked':'')+' onchange="rptScopeChange(this)"> Select PMs</label>';
+  h+='</div>';
+  h+='<div id="rpt-tab-select" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;'+(cfg.scope==='select'?'':'display:none"')+'>';
+  state.tabs.forEach(function(t){
+    var checked=(cfg.scope==='all')||cfg.selectedTabs.indexOf(t)>-1;
+    h+='<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--r);padding:4px 10px">';
+    h+='<input type="checkbox" class="rpt-tab-cb" value="'+esc(t)+'"'+(checked?' checked':'')+'>'+esc(t)+'</label>';
+  });
+  h+='</div></div>';
+
+  // Sections
+  h+='<div class="config-section"><div class="config-section-title">Sections to Include</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:8px">';
+  [['rpt-stats','Summary Statistics (total, past due, due this week, complete)',cfg.includeStats],
+   ['rpt-charts','Charts (tasks by PM, status breakdown, due date health)',cfg.includeCharts],
+   ['rpt-tables','Task Tables (grouped by PM and bucket)',cfg.includeTables]
+  ].forEach(function(row){
+    h+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">';
+    h+='<input type="checkbox" id="'+row[0]+'"'+(row[2]?' checked':'')+'>'+row[1]+'</label>';
+  });
+  h+='</div></div>';
+
+  // Filters
+  h+='<div class="config-section"><div class="config-section-title">Task Filters</div>';
+  h+='<div style="margin-bottom:10px"><div class="form-label" style="margin-bottom:6px">Include Completed Tasks</div>';
+  h+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">';
+  h+='<input type="checkbox" id="rpt-completed"'+(cfg.includeCompleted?' checked':'')+'> Include completed tasks in tables</label></div>';
+  h+='<div><div class="form-label" style="margin-bottom:6px">Priority Filter (uncheck to exclude)</div>';
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
+  ['High','Medium','Low'].forEach(function(p){
+    var checked=cfg.priorities.indexOf(p)>-1;
+    h+='<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">';
+    h+='<input type="checkbox" class="rpt-pri-cb" value="'+p+'"'+(checked?' checked':'')+'>'+p+'</label>';
+  });
+  h+='</div></div></div>';
+
+  h+='</div>'; // end flex column
+
+  h+='<div class="modal-acts">';
+  h+='<button class="btn-cancel" onclick="closeModal(\'reportModal\')">Cancel</button>';
+  h+='<button class="btn-save" onclick="generateReport()" style="background:var(--blue);border-color:var(--blue)">&#128438; Generate PDF</button>';
+  h+='</div>';
+
+  document.getElementById('reportModalBody').innerHTML=h;
+  document.getElementById('reportModal').classList.add('open');
+  rptScopeChange(document.querySelector('input[name="rpt-scope"]:checked'));
+}
+
+function rptScopeChange(el){
+  if(!el) return;
+  var sel=document.getElementById('rpt-tab-select');
+  if(sel) sel.style.display=(el.value==='select'?'flex':'none');
+}
+
+function collectReportConfig(){
+  var scope=document.querySelector('input[name="rpt-scope"]:checked');
+  var selectedTabs=[];
+  document.querySelectorAll('.rpt-tab-cb').forEach(function(cb){if(cb.checked)selectedTabs.push(cb.value);});
+  var priorities=[];
+  document.querySelectorAll('.rpt-pri-cb').forEach(function(cb){if(cb.checked)priorities.push(cb.value);});
+  var cfg={
+    title:document.getElementById('rpt-title').value.trim()||'General Inspection Task Report',
+    subtitle:document.getElementById('rpt-subtitle').value.trim(),
+    scope:scope?scope.value:'all',
+    selectedTabs:selectedTabs,
+    includeStats:document.getElementById('rpt-stats').checked,
+    includeCharts:document.getElementById('rpt-charts').checked,
+    includeTables:document.getElementById('rpt-tables').checked,
+    includeCompleted:document.getElementById('rpt-completed').checked,
+    priorities:priorities,
+    statuses:[]
+  };
+  saveReportDefaults(cfg);
+  return cfg;
+}
+
+function generateReport(){
+  var cfg=collectReportConfig();
+  closeModal('reportModal');
+  showToast('Generating report...');
+
+  // Determine which tabs to include
+  var tabs=cfg.scope==='all'?state.tabs.slice():cfg.selectedTabs.filter(function(t){return state.tabs.indexOf(t)>-1;});
+  if(!tabs.length){showToast('No tabs selected.');return;}
+
+  // Collect data
+  var allTasks=[];
+  tabs.forEach(function(tab){
+    getTabBuckets(tab).forEach(function(bucket){
+      ((state.tasks[tab]||{})[bucket]||[]).forEach(function(t){
+        if(t.status==='Complete'&&!cfg.includeCompleted) return;
+        if(cfg.priorities.length&&cfg.priorities.indexOf(t.priority)===-1) return;
+        allTasks.push({pm:tab,bucket:bucket,task:t});
+      });
+    });
+  });
+
+  var today=new Date();today.setHours(0,0,0,0);
+  var total=allTasks.length,overdue=0,soon=0,complete=0;
+  allTasks.forEach(function(r){
+    var t=r.task;
+    if(t.status==='Complete') complete++;
+    if(t.due){var d=parseDue(t.due),diff=Math.floor((d-today)/86400000);if(diff<0)overdue++;else if(diff<=7)soon++;}
+  });
+
+  // Build chart data
+  var pmCounts={};tabs.forEach(function(t){pmCounts[t]=0;});
+  allTasks.forEach(function(r){pmCounts[r.pm]=(pmCounts[r.pm]||0)+1;});
+  var statusCounts={};
+  allTasks.forEach(function(r){var s=r.task.status||'Unknown';statusCounts[s]=(statusCounts[s]||0)+1;});
+  var pmDue={};
+  tabs.forEach(function(t){pmDue[t]={overdue:0,soon:0,ok:0,na:0};});
+  allTasks.forEach(function(r){
+    var cl=dueClass(r.task.due);
+    pmDue[r.pm][cl]=(pmDue[r.pm][cl]||0)+1;
+  });
+
+  // Build report HTML
+  buildReportWindow(cfg,tabs,allTasks,total,overdue,soon,complete,pmCounts,statusCounts,pmDue,today);
+}
+
+function statusColor(s){
+  var m={'Ongoing':'#1a4fbf','In Progress':'#1a4fbf','In Process':'#1a4fbf','Complete':'#1a6b2a','On Hold':'#6b3db5','Planned':'#8a6500','Pending':'#8a6500','Not Started':'#8a6500','Delayed':'#b93328','Waiting on Response':'#6b3db5','High Priority':'#b93328'};
+  return m[s]||'#888';
+}
+function priColor(p){return p==='High'?'#b93328':p==='Medium'?'#8a6200':'#888';}
+function dueColor(due,status){
+  if(status==='Complete') return '#1a6b2a';
+  if(!due) return '#888';
+  var d=parseDue(due),t=new Date();t.setHours(0,0,0,0);
+  var diff=Math.floor((d-t)/86400000);
+  if(diff<0) return '#b93328';
+  if(diff<=7) return '#8a6200';
+  return '#1a6b2a';
+}
+function fmtDue(due){
+  if(!due) return '—';
+  return parseDue(due).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function buildReportWindow(cfg,tabs,allTasks,total,overdue,soon,complete,pmCounts,statusCounts,pmDue,today){
+  var win=window.open('','_blank','width=1000,height=800');
+  if(!win){showToast('Please allow popups for this site.');return;}
+
+  // Group tasks by tab then bucket
+  var grouped={};
+  tabs.forEach(function(tab){
+    grouped[tab]={};
+    getTabBuckets(tab).forEach(function(b){grouped[tab][b]=[];});
+  });
+  allTasks.forEach(function(r){
+    if(grouped[r.pm]&&grouped[r.pm][r.bucket]!==undefined) grouped[r.pm][r.bucket].push(r.task);
+  });
+
+  var dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">';
+  html+='<title>'+esc(cfg.title)+'</title>';
+  html+='<style>';
+  html+='*{box-sizing:border-box;margin:0;padding:0}';
+  html+='body{font-family:\'Helvetica Neue\',Arial,sans-serif;font-size:11px;color:#1a1e17;background:#fff;padding:0}';
+  html+='@page{size:letter landscape;margin:0.6in 0.5in}';
+  html+='@media print{.no-print{display:none!important}.page-break{page-break-before:always}body{padding:0}}';
+  html+='.report-header{background:linear-gradient(135deg,#1a3a0a 0%,#2a5c14 45%,#3a7d1e 100%);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}';
+  html+='.rpt-logo-txt{font-size:22px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-family:Arial,sans-serif}';
+  html+='.rpt-title-block{text-align:right}';
+  html+='.rpt-title{font-size:16px;font-weight:700}';
+  html+='.rpt-subtitle{font-size:11px;opacity:.8;margin-top:3px}';
+  html+='.rpt-date{font-size:10px;opacity:.65;margin-top:2px}';
+  html+='.section{margin:0 28px 20px}';
+  html+='.section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#2a5c14;border-bottom:2px solid #2a5c14;padding-bottom:5px;margin-bottom:12px}';
+  html+='.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:4px}';
+  html+='.stat-box{border:1px solid #dde0d8;border-radius:8px;padding:12px 16px;text-align:center}';
+  html+='.stat-num{font-size:28px;font-weight:700;color:#1a1e17}';
+  html+='.stat-num.danger{color:#b93328}.stat-num.warning{color:#8a6200}.stat-num.success{color:#1a6b2a}';
+  html+='.stat-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#6b7263;margin-top:3px}';
+  html+='.charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}';
+  html+='.chart-box{border:1px solid #dde0d8;border-radius:8px;padding:12px;text-align:center}';
+  html+='.chart-box-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7263;margin-bottom:10px}';
+  html+='.chart-wrap{position:relative;height:140px}';
+  html+='.pm-section{margin-bottom:18px}';
+  html+='.pm-header{background:#2a5c14;color:#fff;padding:7px 12px;border-radius:6px 6px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}';
+  html+='.bucket-header{background:#f4faf0;border-left:3px solid #2a5c14;padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#2a5c14}';
+  html+='table{width:100%;border-collapse:collapse;font-size:10px}';
+  html+='th{background:#f8faf6;padding:5px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7263;border-bottom:1px solid #dde0d8;white-space:nowrap}';
+  html+='td{padding:5px 8px;border-bottom:1px solid #f0f0ee;vertical-align:top}';
+  html+='tr:last-child td{border-bottom:none}';
+  html+='tr:nth-child(even){background:#fafbf9}';
+  html+='.pri-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}';
+  html+='.status-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:600}';
+  html+='.due-badge{font-size:9px;font-weight:700}';
+  html+='.print-btn{position:fixed;bottom:20px;right:20px;background:#2a5c14;color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2)}';
+  html+='.print-btn:hover{background:#3a7d1e}';
+  html+='.owner-chip{display:inline-block;background:#e8f5e0;color:#2a5c14;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700}';
+  html+='.support-chip{display:inline-block;background:#e8f1ff;color:#1a4fbf;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600}';
+  html+='</style>';
+  html+='<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></scr'+'ipt>';
+  html+='</head><body>';
+
+  // Print button
+  html+='<button class="print-btn no-print" onclick="window.print()">&#128438; Print / Save PDF</button>';
+
+  // Header
+  html+='<div class="report-header">';
+  html+='<div class="rpt-logo-txt">General Inspection</div>';
+  html+='<div class="rpt-title-block">';
+  html+='<div class="rpt-title">'+esc(cfg.title)+'</div>';
+  if(cfg.subtitle)html+='<div class="rpt-subtitle">'+esc(cfg.subtitle)+'</div>';
+  html+='<div class="rpt-date">Generated: '+dateStr+'</div>';
+  html+='</div></div>';
+
+  // Stats
+  if(cfg.includeStats){
+    html+='<div class="section"><div class="section-title">Summary</div>';
+    html+='<div class="stats-row">';
+    html+='<div class="stat-box"><div class="stat-num">'+total+'</div><div class="stat-lbl">Total Tasks</div></div>';
+    html+='<div class="stat-box"><div class="stat-num danger">'+overdue+'</div><div class="stat-lbl">Past Due</div></div>';
+    html+='<div class="stat-box"><div class="stat-num warning">'+soon+'</div><div class="stat-lbl">Due This Week</div></div>';
+    html+='<div class="stat-box"><div class="stat-num success">'+complete+'</div><div class="stat-lbl">Complete</div></div>';
+    html+='</div></div>';
+  }
+
+  // Charts placeholder — rendered after load via JS
+  if(cfg.includeCharts){
+    html+='<div class="section"><div class="section-title">Visual Summary</div>';
+    html+='<div class="charts-row">';
+    html+='<div class="chart-box"><div class="chart-box-title">Tasks by PM</div><div class="chart-wrap"><canvas id="rptChartPM"></canvas></div></div>';
+    html+='<div class="chart-box"><div class="chart-box-title">Status Breakdown</div><div class="chart-wrap"><canvas id="rptChartStatus"></canvas></div></div>';
+    html+='<div class="chart-box"><div class="chart-box-title">Due Date Health by PM</div><div class="chart-wrap"><canvas id="rptChartDue"></canvas></div></div>';
+    html+='</div></div>';
+  }
+
+  // Task tables
+  if(cfg.includeTables){
+    html+='<div class="section"><div class="section-title">Task Details</div>';
+    tabs.forEach(function(tab,ti){
+      var tabTasks=allTasks.filter(function(r){return r.pm===tab;});
+      if(!tabTasks.length) return;
+      if(ti>0) html+='<div class="page-break"></div>';
+      html+='<div class="pm-section">';
+      html+='<div class="pm-header"><span>'+esc(tab)+'</span><span>'+tabTasks.length+' task'+(tabTasks.length!==1?'s':'')+'</span></div>';
+      html+='<table><thead><tr><th>Customer</th><th>Details / Notes</th><th>Owner</th><th>Supporting</th><th>Priority</th><th>Status</th><th>Due Date</th><th>Meeting Notes</th></tr></thead><tbody>';
+
+      getTabBuckets(tab).forEach(function(bucket){
+        var bucketTasks=(grouped[tab]||{})[bucket]||[];
+        if(!bucketTasks.length) return;
+        html+='<tr><td colspan="8" style="padding:0"><div class="bucket-header">'+esc(bucket)+'</div></td></tr>';
+        bucketTasks.forEach(function(t){
+          var dc=dueColor(t.due,t.status);
+          var pc=priColor(t.priority);
+          var sc=statusColor(t.status);
+          html+='<tr>';
+          html+='<td style="font-weight:600;min-width:100px">'+esc(t.customer||'—')+'</td>';
+          html+='<td style="max-width:260px">'+esc(t.notes||'')+'</td>';
+          html+='<td>'+(t.owner?'<span class="owner-chip">'+esc(t.owner)+'</span>':'')+'</td>';
+          html+='<td>'+(t.support?'<span class="support-chip">'+esc(t.support)+'</span>':'')+'</td>';
+          html+='<td><span class="pri-badge" style="background:'+pc+'22;color:'+pc+'">'+esc(t.priority||'—')+'</span></td>';
+          html+='<td><span class="status-badge" style="background:'+sc+'22;color:'+sc+'">'+esc(t.status||'—')+'</span></td>';
+          html+='<td class="due-badge" style="color:'+dc+';white-space:nowrap">'+fmtDue(t.due)+'</td>';
+          html+='<td style="max-width:160px;color:#6b7263">'+esc(t.meetingNotes||'')+'</td>';
+          html+='</tr>';
+        });
+      });
+      html+='</tbody></table></div>';
+    });
+    html+='</div>';
+  }
+
+  // Chart rendering script
+  if(cfg.includeCharts){
+    var pmLabels=JSON.stringify(tabs);
+    var pmData=JSON.stringify(tabs.map(function(t){return pmCounts[t]||0;}));
+    var sLabels=JSON.stringify(Object.keys(statusCounts));
+    var sData=JSON.stringify(Object.values(statusCounts));
+    var dueOv=JSON.stringify(tabs.map(function(t){return (pmDue[t]||{}).overdue||0;}));
+    var dueSo=JSON.stringify(tabs.map(function(t){return (pmDue[t]||{}).soon||0;}));
+    var dueOk=JSON.stringify(tabs.map(function(t){return (pmDue[t]||{}).ok||0;}));
+    var dueNa=JSON.stringify(tabs.map(function(t){return (pmDue[t]||{}).na||0;}));
+
+    html+='<script>';
+    html+='window.onload=function(){';
+    html+='var c1=document.getElementById("rptChartPM");';
+    html+='if(c1)new Chart(c1,{type:"bar",data:{labels:'+pmLabels+',datasets:[{label:"Tasks",data:'+pmData+',backgroundColor:"#3a7d1e",borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}}}}}});';
+    html+='var c2=document.getElementById("rptChartStatus");';
+    html+='if(c2)new Chart(c2,{type:"doughnut",data:{labels:'+sLabels+',datasets:[{data:'+sData+',backgroundColor:["#3a7d1e","#1a4fbf","#8a6200","#6b3db5","#1a6b2a","#b93328","#888","#555","#aaa","#c97d20"],borderWidth:2,borderColor:"#fff"}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"right",labels:{boxWidth:8,font:{size:9}}}}}});';
+    html+='var c3=document.getElementById("rptChartDue");';
+    html+='if(c3)new Chart(c3,{type:"bar",data:{labels:'+pmLabels+',datasets:[{label:"Past Due",data:'+dueOv+',backgroundColor:"#b93328"},{label:"Due Soon",data:'+dueSo+',backgroundColor:"#d4a017"},{label:"On Track",data:'+dueOk+',backgroundColor:"#3a7d1e"},{label:"No Date",data:'+dueNa+',backgroundColor:"#bbb"}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1,font:{size:9}}}},plugins:{legend:{labels:{boxWidth:8,font:{size:9}}}}}});';
+    html+='};';
+    html+='<\/script>';
+  }
+
+  html+='</body></html>';
+  win.document.write(html);
+  win.document.close();
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function showToast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2500);}
+['taskModal','tabModal','cfgModal','histModal'].forEach(function(id){
+  document.getElementById(id).addEventListener('click',function(e){if(e.target.id===id)closeModal(id);});
+});
+
+// boot → firebase layer
+
+
+['taskModal','tabModal','cfgModal','histModal','reportModal','userModal'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', function(e) { if (e.target.id === id) closeModal(id); });
+});
+
+// Boot
+initApp();
+</script>
+</body>
+</html>

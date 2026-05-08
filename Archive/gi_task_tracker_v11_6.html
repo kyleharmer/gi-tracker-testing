@@ -245,8 +245,6 @@ body{font-family:'Barlow','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,
 .sync-status{display:flex;align-items:center;gap:3px;min-width:60px}
 .user-chip{font-size:11px;color:rgba(255,255,255,.8);cursor:pointer;padding:5px 11px;border-radius:20px;border:1px solid rgba(255,255,255,.25);white-space:nowrap;background:rgba(255,255,255,.08)}
 .user-chip:hover{background:rgba(255,255,255,.18)}
-.admin-tools{display:none;align-items:center;gap:6px}
-.admin-tools.unlocked{display:flex}
 .banner{display:none;padding:9px 20px;font-size:12px;font-weight:600;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:2px solid}
 .banner-update{background:#4a9a20;border-color:#3a7a18;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 
@@ -270,10 +268,8 @@ input, select, textarea, button {
         <div class="sync-status" id="sync-status"></div>
         <span class="user-chip" id="user-chip" onclick="promptChangeName()" title="Click to change your name">&#128100; ...</span>
       </div>
-      <div class="admin-tools" id="admin-tools" aria-hidden="true">
-        <button class="hbtn" onclick="downloadBackup()" title="Download JSON backup">&#128190; Backup</button>
-        <button class="hbtn" onclick="openRestoreDialog()" title="Restore from backup">&#128257; Restore</button>
-      </div>
+      <button class="hbtn" onclick="downloadBackup()" title="Download JSON backup">&#128190; Backup</button>
+      <button class="hbtn" onclick="openRestoreDialog()" title="Restore from backup">&#128257; Restore</button>
       <button class="hbtn" onclick="openReport()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35)">&#128462; Report</button>
       <button class="hbtn p" onclick="openAddTab()">+ Add PM Tab</button>
     </div>
@@ -359,12 +355,12 @@ input, select, textarea, button {
 // Pure fetch() calls. No SDK. No eval(). Works everywhere.
 // ═══════════════════════════════════════════════════════════════════
 
-var APP_VERSION = 'v12.1 — STAGING — tasktracker_staging/state';
-var BUILD_DATE  = '2026-05-08';
+var APP_VERSION = 'v11.6';
+var BUILD_DATE  = '2026-05-07';
 var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
 var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
-var DATA_NODE   = 'tasktracker_staging/state';
-var STREAM_NODE = 'tasktracker_staging/state';
+var DATA_NODE   = 'tasktracker/state';
+var STREAM_NODE = 'tasktracker/state';
 
 var LOCAL_KEY  = 'gi-tt-local-v3';
 var USER_KEY   = 'gi-tt-username';
@@ -379,11 +375,6 @@ var saveIndTimer     = null;
 var streamSource     = null;  // EventSource for real-time updates
 var ignoreNextStream = false;
 var appReady         = false;
-
-var adminToolsUnlocked = false;
-var adminClickCount    = 0;
-var adminClickTimer    = null;
-var ADMIN_UNLOCK_CODE  = 'KYLE-RESTORE';
 
 // ── FIREBASE REST HELPERS ──────────────────────────────────────────
 function fbUrl(node) {
@@ -503,14 +494,7 @@ function updateUserChip() {
   var el = document.getElementById('user-chip');
   if (el) el.textContent = '\u{1F464} ' + (currentUser || 'Anonymous');
   var ver = document.getElementById('app-ver');
-  if (ver) {
-    ver.textContent = APP_VERSION;
-    if (!ver.getAttribute('data-admin-bound')) {
-      ver.setAttribute('data-admin-bound', '1');
-      ver.addEventListener('click', handleAdminUnlockClick);
-    }
-  }
-  applyAdminToolVisibility();
+  if (ver) ver.textContent = APP_VERSION;
 }
 function promptChangeName() {
   var name = prompt('Your display name (shown in change log):', currentUser);
@@ -851,45 +835,8 @@ function dismissUpdate() {
   if (window._pendingRemote) localVersion = window._pendingRemote.v;
 }
 
-// ── HIDDEN ADMIN TOOLS ─────────────────────────────────────────────
-function isAdminUser() {
-  return /^kyle( harmer)?$/i.test((currentUser || '').trim());
-}
-function applyAdminToolVisibility() {
-  var el = document.getElementById('admin-tools');
-  if (!el) return;
-  var show = adminToolsUnlocked && isAdminUser();
-  el.classList.toggle('unlocked', show);
-  el.setAttribute('aria-hidden', show ? 'false' : 'true');
-}
-function handleAdminUnlockClick() {
-  adminClickCount++;
-  clearTimeout(adminClickTimer);
-  adminClickTimer = setTimeout(function(){ adminClickCount = 0; }, 2500);
-  if (adminClickCount < 5) return;
-  adminClickCount = 0;
-  if (!isAdminUser()) {
-    showToast('Admin tools are restricted.');
-    return;
-  }
-  var code = prompt('Admin unlock code:');
-  if (code === ADMIN_UNLOCK_CODE) {
-    adminToolsUnlocked = true;
-    applyAdminToolVisibility();
-    showToast('Admin tools unlocked for this session.');
-  } else if (code !== null) {
-    showToast('Incorrect admin code.');
-  }
-}
-function requireAdminTools() {
-  if (adminToolsUnlocked && isAdminUser()) return true;
-  showToast('Backup / Restore tools are locked.');
-  return false;
-}
-
 // ── BACKUP / RESTORE ───────────────────────────────────────────────
 function downloadBackup() {
-  if (!requireAdminTools()) return;
   var payload = serializeState();
   payload.backupDate = new Date().toISOString();
   var json = JSON.stringify(payload, null, 2);
@@ -901,9 +848,7 @@ function downloadBackup() {
   showToast('Backup downloaded.');
 }
 function openRestoreDialog() {
-  if (!requireAdminTools()) return;
   if (!confirm('Restore from a backup? This overwrites ALL current data for the entire team.')) return;
-  if (!confirm('FINAL CHECK: this will replace the shared task tracker data for everyone. Continue?')) return;
   var inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.json';
   inp.onchange = function(e) {
