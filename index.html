@@ -359,8 +359,8 @@ input, select, textarea, button {
 // Pure fetch() calls. No SDK. No eval(). Works everywhere.
 // ═══════════════════════════════════════════════════════════════════
 
-var APP_VERSION = 'v12.1 — STAGING — tasktracker_staging/state';
-var BUILD_DATE  = '2026-05-08';
+var APP_VERSION = 'v12.2 — STAGING — tasktracker_staging/state';
+var BUILD_DATE  = '2026-05-09';
 var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
 var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
 var DATA_NODE   = 'tasktracker_staging/state';
@@ -2379,8 +2379,18 @@ function showToast(msg){var el=document.getElementById('toast');el.textContent=m
 // boot → firebase layer
 
 
-// ── TOUCH DETECTION ──────────────────────────────────────────────
-var isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+// ── MOBILE ACTION MODE DETECTION ────────────────────────────────
+// Use the mobile action sheet only for true mobile/tablet-style use.
+// Windows touch-capable desktops often report maxTouchPoints, so do not
+// treat touch capability alone as mobile.
+function isMobileActionSheetMode() {
+  var ua = navigator.userAgent || '';
+  var mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  var coarsePointer = window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
+  var noHover = window.matchMedia ? window.matchMedia('(hover: none)').matches : false;
+  var narrowScreen = window.matchMedia ? window.matchMedia('(max-width: 900px)').matches : (window.innerWidth <= 900);
+  return mobileUA || (narrowScreen && coarsePointer && noHover);
+}
 
 // ── ACTION SHEET (mobile) ─────────────────────────────────────────
 var _asTaskId = null;
@@ -2397,16 +2407,22 @@ function closeActionSheet() {
   _asTaskId = null; _asBucket = null;
 }
 function actionSheetEdit() {
+  var taskId = _asTaskId;
+  var bucket = _asBucket;
   closeActionSheet();
-  if (_asTaskId && _asBucket) openEditTask(_asTaskId, _asBucket);
+  if (taskId && bucket) openEditTask(taskId, bucket);
 }
 function actionSheetHistory() {
+  var taskId = _asTaskId;
+  var bucket = _asBucket;
   closeActionSheet();
-  if (_asTaskId && _asBucket) showHistory(_asTaskId, _asBucket);
+  if (taskId && bucket) showHistory(taskId, bucket);
 }
 function actionSheetDelete() {
+  var taskId = _asTaskId;
+  var bucket = _asBucket;
   closeActionSheet();
-  if (_asTaskId && _asBucket) deleteTask(_asTaskId, _asBucket);
+  if (taskId && bucket) deleteTask(taskId, bucket);
 }
 
 // ── WIRE ROW INTERACTIONS after renderApp ─────────────────────────
@@ -2418,20 +2434,19 @@ function wireRowInteractions() {
     var customer = row.getAttribute('data-customer');
     if (!taskId || !bucket) return;
 
-    if (isTouchDevice) {
-      // Single tap → action sheet
-      row.addEventListener('click', function(e) {
-        // Don't trigger if they tapped an action button
-        if (e.target.closest('[data-action]') || e.target.closest('.row-acts')) return;
-        openActionSheet(taskId, bucket, customer);
-      });
-    } else {
-      // Double-click → edit directly
-      row.addEventListener('dblclick', function(e) {
-        if (e.target.closest('[data-action]')) return;
-        openEditTask(taskId, bucket);
-      });
-    }
+    // Single tap opens the action sheet only on true mobile/tablet layouts.
+    row.addEventListener('click', function(e) {
+      if (!isMobileActionSheetMode()) return;
+      if (e.target.closest('[data-action]') || e.target.closest('.row-acts')) return;
+      openActionSheet(taskId, bucket, customer);
+    });
+
+    // Desktop and hybrid Windows devices keep the safer double-click edit behavior.
+    row.addEventListener('dblclick', function(e) {
+      if (isMobileActionSheetMode()) return;
+      if (e.target.closest('[data-action]') || e.target.closest('.row-acts')) return;
+      openEditTask(taskId, bucket);
+    });
   });
 }
 
