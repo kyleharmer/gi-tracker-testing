@@ -366,7 +366,7 @@ input, select, textarea, button {
 // Pure fetch() calls. No SDK. No eval(). Works everywhere.
 // ═══════════════════════════════════════════════════════════════════
 
-var APP_VERSION = 'v12.3 — STAGING — tasktracker_staging/state';
+var APP_VERSION = 'v12.3.1 — STAGING — tasktracker_staging/state';
 var BUILD_DATE  = '2026-05-09';
 var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
 var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
@@ -1001,6 +1001,7 @@ function initApp() {
 function finishInit() {
   attachStream();
   appReady = true;
+  updateUserChip();
   if (!currentUser) {
     openUserPrompt(function() {
       renderApp();
@@ -1452,7 +1453,7 @@ function renderTaskRow(t,bucket,cols,showPeople,isSubtask,parentId){
   h+='<td><div class="row-acts">';
   if(!isSubtask)h+='<button class="icon-btn" title="Add Subtask" data-action="subtask" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#8627;</button>';
   h+='<button class="icon-btn" title="History" data-action="history" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#128203;</button>';
-  h+='<button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(ref.parentId?' data-parent-id="'+ref.parentId+'"':'')+''+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#9998;</button>';
+  h+='<button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#9998;</button>';
   h+='<button class="icon-btn del" title="Delete" data-action="delete" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#10005;</button>';
   h+='</div></td></tr>';
   return h;
