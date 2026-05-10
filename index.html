@@ -176,6 +176,14 @@ body{font-family:'Barlow','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,
 .config-item{display:flex;align-items:center;gap:8px;background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--r);padding:6px 10px;font-size:13px}
 .config-item-name{flex:1;font-weight:500}
 .config-item-type{font-size:11px;color:var(--txm);background:#f0f0f0;padding:1px 6px;border-radius:3px}
+.config-item.dragging{opacity:.5;border-style:dashed}
+.config-drag-handle{font-size:14px;color:var(--txm);cursor:grab;line-height:1}
+.config-move-btn{border:1px solid var(--bdr);background:var(--surf);color:var(--txm);border-radius:5px;font-size:11px;padding:2px 6px;cursor:pointer}
+.config-move-btn:disabled{opacity:.35;cursor:not-allowed}
+.config-subhint{font-size:11px;color:var(--txm);line-height:1.35;margin:-2px 0 8px}
+.audit-log{display:flex;flex-direction:column;gap:5px;max-height:150px;overflow:auto}
+.audit-entry{font-size:11px;color:var(--txm);background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--r);padding:6px 8px;line-height:1.35}
+.audit-entry strong{color:var(--tx)}
 .config-add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .config-inp{font-family:'Barlow','Segoe UI',system-ui,-apple-system,sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 8px;background:var(--surf);color:var(--tx);flex:1;min-width:100px}
 .config-sel{font-family:'Barlow','Segoe UI',system-ui,-apple-system,sans-serif;font-size:12px;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 7px;background:var(--surf);color:var(--txm)}
@@ -373,8 +381,8 @@ input, select, textarea, button {
 // Pure fetch() calls. No SDK. No eval(). Works everywhere.
 // ═══════════════════════════════════════════════════════════════════
 
-var APP_VERSION = 'v12.3.2 — STAGING — tasktracker_staging/state';
-var BUILD_DATE  = '2026-05-09';
+var APP_VERSION = 'v12.4 — STAGING — tasktracker_staging/state';
+var BUILD_DATE  = '2026-05-10';
 var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
 var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
 var DATA_NODE   = 'tasktracker_staging/state';
@@ -629,7 +637,9 @@ function serializeState() {
     tasks: state.tasks,
     timestamps: state.timestamps,
     tabCols: state.tabCols,
-    tabBuckets: state.tabBuckets
+    tabBuckets: state.tabBuckets,
+    tabHistory: state.tabHistory || [],
+    auditLog: state.auditLog || []
   };
 }
 
@@ -640,6 +650,8 @@ function applyRemoteState(remote) {
   state.timestamps = remote.timestamps || {};
   state.tabCols    = remote.tabCols    || {};
   state.tabBuckets = remote.tabBuckets || {};
+  state.tabHistory = remote.tabHistory || [];
+  state.auditLog   = remote.auditLog   || [];
   cloudVersion = remote.v || 0;
   localVersion = cloudVersion;
   if (!state.activeTab || state.tabs.indexOf(state.activeTab) === -1)
@@ -771,6 +783,7 @@ function mergeStates(local, remote) {
   merged.tabBuckets = remote.tabBuckets || merged.tabBuckets || {};
   merged.timestamps = remote.timestamps || merged.timestamps || {};
   merged.tabHistory = remote.tabHistory || merged.tabHistory || [];
+  merged.auditLog   = remote.auditLog   || merged.auditLog   || [];
   merged.v          = remote.v;
 
   if (!merged.activeTab || merged.tabs.indexOf(merged.activeTab) === -1)
@@ -1048,7 +1061,7 @@ var TAB_BUCKETS = {
 };
 var STATUS_OPTS = ['Ongoing','In Progress','In Process','Planned','Pending','Complete','On Hold','Delayed','Waiting on Response','Not Started','Idle','Scheduled','High Priority'];
 
-var state = { tabs:[], activeTab:null, tasks:{}, timestamps:{}, tabCols:{}, tabBuckets:{}, tabHistory:[] };
+var state = { tabs:[], activeTab:null, tasks:{}, timestamps:{}, tabCols:{}, tabBuckets:{}, tabHistory:[], auditLog:[] };
 var editingTask=null, editingBucket=null, editingParentTask=null;
 var curSearch='', curFilter='', curPriFilter='';
 var sortCol='', sortDir=1;
@@ -1776,6 +1789,7 @@ function deleteTask(id,bucket,parentId){
   var label=parentId?'subtask':'task';
   var extra=(!parentId&&ref.task.subtasks&&ref.task.subtasks.length)?' and its '+ref.task.subtasks.length+' subtask(s)':'';
   if(!confirm('Delete this '+label+extra+'?'))return;
+  logAuditEvent(parentId?'Subtask deleted':'Task deleted', ref.task.customer||'(untitled)', state.activeTab, 'From section "'+bucket+'"'+((!parentId&&ref.task.subtasks&&ref.task.subtasks.length)?'; included '+ref.task.subtasks.length+' subtask(s).':''));
   ref.arr.splice(ref.index,1);
   persist();renderApp();showToast(parentId?'Subtask deleted.':'Task deleted.');
 }
@@ -1909,7 +1923,7 @@ function renameTab(){
   persist();closeModal('cfgModal');renderApp();showToast('Tab renamed to "'+newName+'".');
 }
 function renderCfgBody(tab){
-  var cols=getTabCols(tab),buckets=getTabBuckets(tab);
+  var cols=getTabCols(tab),sections=getTabBuckets(tab);
   var defaultBuckets=TAB_BUCKETS[tab]||GLOBAL_BUCKETS;
   var h='<div class="config-section"><div class="config-section-title">Rename This Tab</div>';
   h+='<div class="config-add-row"><input class="config-inp" id="renameTabInp" value="'+esc(tab)+'" placeholder="Tab name" style="flex:2">';
@@ -1926,16 +1940,35 @@ function renderCfgBody(tab){
   h+='<select class="config-sel" id="newColType"><option value="text">Text</option><option value="textarea">Text Area</option><option value="date">Date</option></select>';
   h+='<button class="config-add-btn" id="btn-add-col">+ Add Column</button></div>';
   h+='<span class="reset-link" id="btn-reset-cols">Reset to global defaults</span></div>';
-  h+='<div class="config-section" style="margin-top:20px"><div class="config-section-title">Task Buckets</div><div class="config-list">';
-  buckets.forEach(function(b,i){
-    h+='<div class="config-item"><span class="config-item-name">'+esc(b)+'</span>';
-    if(i>=defaultBuckets.length)h+='<button class="icon-btn del" data-rmbucket="'+esc(b)+'">&#10005;</button>';
-    else h+='<span style="font-size:10px;color:var(--txl)">default</span>';
+
+  h+='<div class="config-section" style="margin-top:20px"><div class="config-section-title">Task Sections</div>';
+  h+='<div class="config-subhint">Sections are the task groups shown on this person\'s tab. Drag a row or use the arrow buttons to change the order. Default sections can now be deleted too.</div>';
+  h+='<div class="config-list" id="sectionOrderList">';
+  sections.forEach(function(b,i){
+    var isDefault=defaultBuckets.indexOf(b)!==-1;
+    h+='<div class="config-item" draggable="true" data-section-row="'+esc(b)+'">';
+    h+='<span class="config-drag-handle" title="Drag to reorder">&#8942;&#8942;</span>';
+    h+='<span class="config-item-name">'+esc(b)+'</span>';
+    if(isDefault)h+='<span class="config-item-type">default</span>';
+    h+='<button class="config-move-btn" data-movebucket="'+esc(b)+'" data-dir="-1" '+(i===0?'disabled':'')+' title="Move up">&#9650;</button>';
+    h+='<button class="config-move-btn" data-movebucket="'+esc(b)+'" data-dir="1" '+(i===sections.length-1?'disabled':'')+' title="Move down">&#9660;</button>';
+    h+='<button class="icon-btn del" title="Delete section" data-rmbucket="'+esc(b)+'">&#10005;</button>';
     h+='</div>';
   });
-  h+='</div><div class="config-add-row"><input class="config-inp" id="newBucketName" placeholder="New bucket name">';
-  h+='<button class="config-add-btn" id="btn-add-bucket">+ Add Bucket</button></div>';
+  h+='</div><div class="config-add-row"><input class="config-inp" id="newBucketName" placeholder="New section name">';
+  h+='<button class="config-add-btn" id="btn-add-bucket">+ Add Section</button></div>';
   h+='<span class="reset-link" id="btn-reset-buckets">Reset to global defaults</span></div>';
+
+  var audit=(state.auditLog||[]).filter(function(e){return !e.tab||e.tab===tab;}).slice(-10).reverse();
+  h+='<div class="config-section" style="margin-top:20px"><div class="config-section-title">Recent Delete Log</div>';
+  if(audit.length){
+    h+='<div class="audit-log">';
+    audit.forEach(function(e){h+='<div class="audit-entry"><strong>'+esc(e.type||'Change')+'</strong> — '+esc(e.item||'')+'<br><span>'+esc(e.t||'')+' by '+esc(e.by||'anonymous')+(e.detail?' — '+esc(e.detail):'')+'</span></div>';});
+    h+='</div>';
+  }else{
+    h+='<div class="config-subhint">No deleted items have been logged for this tab yet.</div>';
+  }
+  h+='</div>';
   document.getElementById('cfgModalBody').innerHTML=h;
 
   // Wire config buttons
@@ -1950,6 +1983,10 @@ function renderCfgBody(tab){
   document.querySelectorAll('[data-rmbucket]').forEach(function(btn){
     btn.onclick=function(){removeBucket(t,this.getAttribute('data-rmbucket'));};
   });
+  document.querySelectorAll('[data-movebucket]').forEach(function(btn){
+    btn.onclick=function(){moveBucket(t,this.getAttribute('data-movebucket'),parseInt(this.getAttribute('data-dir'),10));};
+  });
+  wireSectionDrag(t);
 }
 function toggleColVis(tab,idx,val){if(!state.tabCols[tab])state.tabCols[tab]=JSON.parse(JSON.stringify(getTabCols(tab)));state.tabCols[tab][idx].visible=val;persist();}
 function addCustomCol(tab){
@@ -1959,23 +1996,69 @@ function addCustomCol(tab){
   state.tabCols[tab].push({key:'c_'+uid(),label:name,type:type,visible:true,custom:true});
   persist();renderCfgBody(tab);
 }
-function removeCustomCol(tab,idx){if(!state.tabCols[tab])state.tabCols[tab]=JSON.parse(JSON.stringify(getTabCols(tab)));state.tabCols[tab].splice(idx,1);persist();renderCfgBody(tab);}
+function removeCustomCol(tab,idx){
+  if(!state.tabCols[tab])state.tabCols[tab]=JSON.parse(JSON.stringify(getTabCols(tab)));
+  var removed=state.tabCols[tab][idx];
+  state.tabCols[tab].splice(idx,1);
+  logAuditEvent('Column deleted', removed?removed.label:'Column', tab, 'Deleted from Configure.');
+  persist();renderCfgBody(tab);
+}
 function resetCols(tab){if(!confirm('Reset columns to global defaults?'))return;delete state.tabCols[tab];persist();renderCfgBody(tab);showToast('Columns reset.');}
 function addBucket(tab){
-  var name=document.getElementById('newBucketName').value.trim();if(!name){alert('Bucket name required.');return;}
+  var name=document.getElementById('newBucketName').value.trim();if(!name){alert('Section name required.');return;}
   if(!state.tabBuckets[tab])state.tabBuckets[tab]=getTabBuckets(tab).slice();
   if(state.tabBuckets[tab].indexOf(name)!==-1){alert('Already exists.');return;}
-  state.tabBuckets[tab].push(name);ensureTab(tab);persist();renderCfgBody(tab);showToast('Bucket added.');
+  state.tabBuckets[tab].push(name);ensureTab(tab);persist();renderCfgBody(tab);showToast('Section added.');
+}
+function moveBucket(tab,bucket,dir){
+  if(!state.tabBuckets[tab])state.tabBuckets[tab]=getTabBuckets(tab).slice();
+  var arr=state.tabBuckets[tab],idx=arr.indexOf(bucket),next=idx+dir;
+  if(idx<0||next<0||next>=arr.length)return;
+  var tmp=arr[idx];arr[idx]=arr[next];arr[next]=tmp;
+  persist();renderCfgBody(tab);renderApp();showToast('Section order updated.');
+}
+function wireSectionDrag(tab){
+  var list=document.getElementById('sectionOrderList');if(!list)return;
+  var dragName=null;
+  list.querySelectorAll('[data-section-row]').forEach(function(row){
+    row.addEventListener('dragstart',function(e){dragName=this.getAttribute('data-section-row');this.classList.add('dragging');try{e.dataTransfer.setData('text/plain',dragName);}catch(_e){};});
+    row.addEventListener('dragend',function(){this.classList.remove('dragging');dragName=null;});
+    row.addEventListener('dragover',function(e){e.preventDefault();});
+    row.addEventListener('drop',function(e){
+      e.preventDefault();
+      var from=dragName;try{from=e.dataTransfer.getData('text/plain')||from;}catch(_e){}
+      var to=this.getAttribute('data-section-row');
+      if(!from||!to||from===to)return;
+      reorderBucketBefore(tab,from,to);
+    });
+  });
+}
+function reorderBucketBefore(tab,fromBucket,toBucket){
+  if(!state.tabBuckets[tab])state.tabBuckets[tab]=getTabBuckets(tab).slice();
+  var arr=state.tabBuckets[tab],from=arr.indexOf(fromBucket),to=arr.indexOf(toBucket);
+  if(from<0||to<0||from===to)return;
+  var moved=arr.splice(from,1)[0];
+  to=arr.indexOf(toBucket);
+  arr.splice(to,0,moved);
+  persist();renderCfgBody(tab);renderApp();showToast('Section order updated.');
 }
 function removeBucket(tab,bucket){
   var tasks=(state.tasks[tab]||{})[bucket]||[];
-  if(tasks.length&&!confirm('Delete bucket "'+bucket+'" and its '+tasks.length+' task(s)?'))return;
+  var msg='Delete section "'+bucket+'"?';
+  if(tasks.length)msg+=' This will also delete '+tasks.length+' task(s) and any subtasks inside them.';
+  if(!confirm(msg))return;
   if(!state.tabBuckets[tab])state.tabBuckets[tab]=getTabBuckets(tab).slice();
   state.tabBuckets[tab]=state.tabBuckets[tab].filter(function(b){return b!==bucket;});
   if(state.tasks[tab])delete state.tasks[tab][bucket];
-  persist();renderCfgBody(tab);showToast('Bucket removed.');
+  logAuditEvent('Section deleted', bucket, tab, tasks.length+' task(s) removed with this section.');
+  persist();renderCfgBody(tab);renderApp();showToast('Section removed.');
 }
-function resetBuckets(tab){if(!confirm('Reset buckets to global defaults?'))return;delete state.tabBuckets[tab];persist();renderCfgBody(tab);showToast('Buckets reset.');}
+function resetBuckets(tab){if(!confirm('Reset sections to global defaults? This will restore the default section list, but it will not recover tasks from deleted sections.'))return;delete state.tabBuckets[tab];persist();renderCfgBody(tab);renderApp();showToast('Sections reset.');}
+function logAuditEvent(type,item,tab,detail){
+  if(!state.auditLog)state.auditLog=[];
+  state.auditLog.push({t:nowTs(),type:type,item:item||'',tab:tab||'',detail:detail||'',by:currentUser||'anonymous'});
+  if(state.auditLog.length>300)state.auditLog=state.auditLog.slice(-300);
+}
 
 function logTabEvent(action, tabName) {
   if (!state.tabHistory) state.tabHistory = [];
@@ -2003,6 +2086,7 @@ function confirmDeleteTab(tab){
   if(state.tabs.length<=1){alert('Cannot remove the last tab.');return;}
   if(!confirm('Remove tab "'+tab+'" and ALL its tasks?'))return;
   logTabEvent('removed', tab);
+  logAuditEvent('Tab deleted', tab, tab, 'Removed the tab and all tasks on it.');
   state.tabs=state.tabs.filter(function(t){return t!==tab;});
   delete state.tasks[tab];delete state.tabCols[tab];delete state.tabBuckets[tab];
   state.activeTab=state.tabs[0];persist();renderApp();showToast('Tab removed.');
