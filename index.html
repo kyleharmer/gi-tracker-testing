@@ -113,6 +113,10 @@ body{font-family:'Barlow','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,
 .subtask-indent::before{content:'↳';color:var(--txl);font-weight:700;margin-top:1px}
 .subtask-chip{display:inline-block;margin-top:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);background:var(--blue-bg);border:1px solid #b9c7f2;border-radius:999px;padding:1px 6px}
 .subtask-count{display:inline-block;margin-left:6px;font-size:10px;color:var(--blue);background:var(--blue-bg);border:1px solid #b9c7f2;border-radius:999px;padding:1px 6px;font-weight:700}
+.inline-subtask-btn{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 9px;border-radius:999px;border:1px solid #b9c7f2;background:var(--blue-bg);color:var(--blue);font-family:'Barlow','Segoe UI',system-ui,-apple-system,sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.inline-subtask-btn:hover{background:#dfe8ff;border-color:#8fa7ec;color:#173f9f}
+.subtask-add-btn{width:auto;min-width:70px;padding:0 8px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);border-color:#b9c7f2}
+.subtask-add-btn:hover{background:#dfe8ff;border-color:#8fa7ec;color:#173f9f}
 .cust-name{font-weight:600}
 .sub-note{color:var(--txm);font-size:11px;margin-top:2px;line-height:1.4}
 .due-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
@@ -347,6 +351,9 @@ input, select, textarea, button {
 <div class="action-sheet-overlay" id="actionSheet" onclick="closeActionSheet()">
   <div class="action-sheet" onclick="event.stopPropagation()">
     <div class="action-sheet-title" id="actionSheetTitle">Task Actions</div>
+    <button class="action-sheet-btn" id="actionSheetSubtaskBtn" onclick="actionSheetSubtask()">
+      <span class="as-icon">&#10133;</span> Add Subtask
+    </button>
     <button class="action-sheet-btn" onclick="actionSheetEdit()">
       <span class="as-icon">&#9998;</span> Edit Task
     </button>
@@ -366,7 +373,7 @@ input, select, textarea, button {
 // Pure fetch() calls. No SDK. No eval(). Works everywhere.
 // ═══════════════════════════════════════════════════════════════════
 
-var APP_VERSION = 'v12.3.1 — STAGING — tasktracker_staging/state';
+var APP_VERSION = 'v12.3.2 — STAGING — tasktracker_staging/state';
 var BUILD_DATE  = '2026-05-09';
 var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
 var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
@@ -1439,7 +1446,7 @@ function renderTaskRow(t,bucket,cols,showPeople,isSubtask,parentId){
     if(c.key==='customer'){
       var name=(t.conflict?'<span title="Merged update needs review" style="color:#b45309;font-weight:800;margin-right:5px">⚠</span>':'')+esc(t.customer||'—');
       if(isSubtask)h+='<div class="subtask-indent"><div><div class="cust-name">'+name+'</div><span class="subtask-chip">Subtask</span></div></div>';
-      else h+='<div class="cust-name">'+name+((t.subtasks&&t.subtasks.length)?'<span class="subtask-count">'+t.subtasks.length+' sub</span>':'')+'</div>';
+      else h+='<div class="cust-name">'+name+((t.subtasks&&t.subtasks.length)?'<span class="subtask-count">'+t.subtasks.length+' sub</span>':'')+'</div><button class="inline-subtask-btn" type="button" title="Add a nested subtask under this task" data-action="subtask" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">+ Add subtask</button>';
     }
     else if(c.key==='due')h+=dueBadgeWithCountdown(t.due,t.status);
     else if(c.key==='status')h+=statusPill(t.status);
@@ -1451,7 +1458,7 @@ function renderTaskRow(t,bucket,cols,showPeople,isSubtask,parentId){
   });
   if(showPeople)h+='<td>'+peopleCell(t.owner,t.support)+'</td>';
   h+='<td><div class="row-acts">';
-  if(!isSubtask)h+='<button class="icon-btn" title="Add Subtask" data-action="subtask" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#8627;</button>';
+  if(!isSubtask)h+='<button class="icon-btn subtask-add-btn" title="Add Subtask" data-action="subtask" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">+ Sub</button>';
   h+='<button class="icon-btn" title="History" data-action="history" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#128203;</button>';
   h+='<button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#9998;</button>';
   h+='<button class="icon-btn del" title="Delete" data-action="delete" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#10005;</button>';
@@ -2487,11 +2494,20 @@ function openActionSheet(taskId, bucket, customerName, parentId) {
   _asBucket = bucket;
   _asParentId = parentId || null;
   document.getElementById('actionSheetTitle').textContent = customerName || 'Task Actions';
+  var subBtn = document.getElementById('actionSheetSubtaskBtn');
+  if (subBtn) subBtn.style.display = parentId ? 'none' : 'flex';
   document.getElementById('actionSheet').classList.add('open');
 }
 function closeActionSheet() {
   document.getElementById('actionSheet').classList.remove('open');
   _asTaskId = null; _asBucket = null; _asParentId = null;
+}
+function actionSheetSubtask() {
+  var taskId = _asTaskId;
+  var bucket = _asBucket;
+  var parentId = _asParentId;
+  closeActionSheet();
+  if (taskId && bucket && !parentId) openAddTask(bucket, taskId);
 }
 function actionSheetEdit() {
   var taskId = _asTaskId;
