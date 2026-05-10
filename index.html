@@ -106,6 +106,13 @@ body{font-family:'Barlow','Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,
 .task-table td{padding:9px 10px;border-bottom:1px solid var(--bdr);vertical-align:top}
 .task-table tbody tr:last-child td{border-bottom:none}
 .task-table tbody tr:hover{background:var(--gig-xlight)}
+
+.task-table tbody tr.subtask-row td{background:#fbfcfa;border-bottom:1px solid #e8ebe2}
+.task-table tbody tr.subtask-row:hover td{background:#f4faf0}
+.subtask-indent{display:flex;align-items:flex-start;gap:7px;padding-left:18px}
+.subtask-indent::before{content:'↳';color:var(--txl);font-weight:700;margin-top:1px}
+.subtask-chip{display:inline-block;margin-top:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);background:var(--blue-bg);border:1px solid #b9c7f2;border-radius:999px;padding:1px 6px}
+.subtask-count{display:inline-block;margin-left:6px;font-size:10px;color:var(--blue);background:var(--blue-bg);border:1px solid #b9c7f2;border-radius:999px;padding:1px 6px;font-weight:700}
 .cust-name{font-weight:600}
 .sub-note{color:var(--txm);font-size:11px;margin-top:2px;line-height:1.4}
 .due-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
@@ -359,7 +366,7 @@ input, select, textarea, button {
 // Pure fetch() calls. No SDK. No eval(). Works everywhere.
 // ═══════════════════════════════════════════════════════════════════
 
-var APP_VERSION = 'v12.2 — STAGING — tasktracker_staging/state';
+var APP_VERSION = 'v12.3 — STAGING — tasktracker_staging/state';
 var BUILD_DATE  = '2026-05-09';
 var FB_DB_URL   = 'https://gi-task-tracker-default-rtdb.firebaseio.com';
 var FB_API_KEY  = 'AIzaSyAHLU7QSQmaONIUAAVOt8mgzyYsLaMxFTw';
@@ -640,7 +647,7 @@ function mergeStates(local, remote) {
   if (!remote || !remote.tabs) return local;
 
   var TASK_FIELDS = ['customer','notes','owner','support','status','due',
-                     'priority','milestone','meetingNotes'];
+                     'priority','milestone','meetingNotes','subtasks'];
   var now = new Date().toISOString();
   var merged = JSON.parse(JSON.stringify(local || {})); // deep clone local
 
@@ -678,6 +685,7 @@ function mergeStates(local, remote) {
       Object.keys(tasksObj[tab] || {}).forEach(function(bucket) {
         (tasksObj[tab][bucket] || []).forEach(function(t) {
           if (t.id) idx[t.id] = { task: t, bucket: bucket, tab: tab };
+          (t.subtasks || []).forEach(function(st) { if (st.id) idx[st.id] = { task: st, bucket: bucket, tab: tab, parentId: t.id, parent: t }; });
         });
       });
     });
@@ -835,6 +843,7 @@ function acceptUpdate() {
       Object.keys(state.tasks[tab] || {}).forEach(function(bucket) {
         (state.tasks[tab][bucket] || []).forEach(function(t) {
           if (t.conflict) conflicts++;
+          (t.subtasks || []).forEach(function(st){ if(st.conflict) conflicts++; });
         });
       });
     });
@@ -1032,7 +1041,7 @@ var TAB_BUCKETS = {
 var STATUS_OPTS = ['Ongoing','In Progress','In Process','Planned','Pending','Complete','On Hold','Delayed','Waiting on Response','Not Started','Idle','Scheduled','High Priority'];
 
 var state = { tabs:[], activeTab:null, tasks:{}, timestamps:{}, tabCols:{}, tabBuckets:{}, tabHistory:[] };
-var editingTask=null, editingBucket=null;
+var editingTask=null, editingBucket=null, editingParentTask=null;
 var curSearch='', curFilter='', curPriFilter='';
 var sortCol='', sortDir=1;
 var dashSearch='', dashPM='', dashBucket='', dashStatus='', dashDue='', dashPri='';
@@ -1110,7 +1119,7 @@ function ensureTab(tab){
   getTabBuckets(tab).forEach(function(b){if(!state.tasks[tab][b])state.tasks[tab][b]=[];});
 }
 function mk(c,n,o,s,st,due,pri,ms,mn){
-  return {id:uid(),customer:c||'',notes:n||'',owner:o||'',support:s||'',status:st||'Ongoing',due:due||'',priority:pri||'Medium',milestone:ms||'',meetingNotes:mn||'',changelog:[{t:nowTs(),msg:(currentUser?currentUser+' created task':'Task created')}]};
+  return {id:uid(),customer:c||'',notes:n||'',owner:o||'',support:s||'',status:st||'Ongoing',due:due||'',priority:pri||'Medium',milestone:ms||'',meetingNotes:mn||'',subtasks:[],changelog:[{t:nowTs(),msg:(currentUser?currentUser+' created task':'Task created')}]};
 }
 function initDefault(){
   var dTabs=['Kyle','Favs','Noah','Kendra','Software - Kendra','Service - Jonah','Jason','Design Bob & Cody'];
@@ -1373,13 +1382,80 @@ function getStats(tab){
   var tasks=state.tasks[tab]||{},total=0,overdue=0,soon=0,complete=0;
   var t=new Date();t.setHours(0,0,0,0);
   getTabBuckets(tab).forEach(function(b){
-    (tasks[b]||[]).forEach(function(tk){
+    flattenBucketTasks(tab,b).forEach(function(ref){
+      var tk=ref.task;
       total++;
       if(tk.status==='Complete')complete++;
       if(tk.due){var d=parseDue(tk.due),diff=Math.floor((d-t)/86400000);if(diff<0)overdue++;else if(diff<=7)soon++;}
     });
   });
   return {total:total,overdue:overdue,soon:soon,complete:complete};
+}
+
+function getTaskRef(id,bucket,parentId){
+  var arr=((state.tasks[state.activeTab]||{})[bucket]||[]);
+  for(var i=0;i<arr.length;i++){
+    if(parentId){
+      if(arr[i].id===parentId){
+        var subs=arr[i].subtasks||[];
+        for(var j=0;j<subs.length;j++){if(subs[j].id===id)return {task:subs[j],arr:subs,index:j,parent:arr[i],parentId:parentId};}
+      }
+    }else if(arr[i].id===id){
+      if(!arr[i].subtasks)arr[i].subtasks=[];
+      return {task:arr[i],arr:arr,index:i,parent:null,parentId:null};
+    }
+  }
+  return null;
+}
+
+function flattenBucketTasks(tab,bucket){
+  var out=[];
+  (((state.tasks[tab]||{})[bucket])||[]).forEach(function(t){
+    if(!t.subtasks)t.subtasks=[];
+    out.push({task:t,parent:null,parentId:null});
+    (t.subtasks||[]).forEach(function(st){out.push({task:st,parent:t,parentId:t.id});});
+  });
+  return out;
+}
+
+function taskMatchesMainFilters(t){
+  if(t.status==='Complete'&&!showCompleted[state.activeTab]&&!curFilter) return false;
+  var q=curSearch.toLowerCase();
+  var mq=!q||[t.customer,t.notes,t.owner,t.support,t.status,t.meetingNotes,t.milestone].some(function(v){return String(v||'').toLowerCase().indexOf(q)>-1;});
+  return mq&&(!curFilter||t.status===curFilter)&&(!curPriFilter||t.priority===curPriFilter);
+}
+
+function taskHasMatchingSubtask(t){
+  return (t.subtasks||[]).some(function(st){return taskMatchesMainFilters(st);});
+}
+
+function renderTaskRow(t,bucket,cols,showPeople,isSubtask,parentId){
+  var h='';
+  h+='<tr class="'+(isSubtask?'subtask-row':'')+'" data-task-id="'+t.id+'" data-bucket="'+esc(bucket)+'" data-customer="'+esc(t.customer||'')+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>';
+  cols.forEach(function(c){
+    if(c.key==='owner'||c.key==='support')return;
+    h+='<td>';
+    if(c.key==='customer'){
+      var name=(t.conflict?'<span title="Merged update needs review" style="color:#b45309;font-weight:800;margin-right:5px">⚠</span>':'')+esc(t.customer||'—');
+      if(isSubtask)h+='<div class="subtask-indent"><div><div class="cust-name">'+name+'</div><span class="subtask-chip">Subtask</span></div></div>';
+      else h+='<div class="cust-name">'+name+((t.subtasks&&t.subtasks.length)?'<span class="subtask-count">'+t.subtasks.length+' sub</span>':'')+'</div>';
+    }
+    else if(c.key==='due')h+=dueBadgeWithCountdown(t.due,t.status);
+    else if(c.key==='status')h+=statusPill(t.status);
+    else if(c.key==='priority')h+=priTag(t.priority);
+    else if(c.key==='meetingNotes'&&t.meetingNotes)h+='<div class="sub-note">'+esc(t.meetingNotes)+'</div>';
+    else if(c.key==='milestone'&&t.milestone)h+='<div style="font-size:11px;color:var(--blue)">'+esc(t.milestone)+'</div>';
+    else h+='<div style="line-height:1.5">'+esc(t[c.key]||'')+'</div>';
+    h+='</td>';
+  });
+  if(showPeople)h+='<td>'+peopleCell(t.owner,t.support)+'</td>';
+  h+='<td><div class="row-acts">';
+  if(!isSubtask)h+='<button class="icon-btn" title="Add Subtask" data-action="subtask" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#8627;</button>';
+  h+='<button class="icon-btn" title="History" data-action="history" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#128203;</button>';
+  h+='<button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(ref.parentId?' data-parent-id="'+ref.parentId+'"':'')+''+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#9998;</button>';
+  h+='<button class="icon-btn del" title="Delete" data-action="delete" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(parentId?' data-parent-id="'+parentId+'"':'')+'>&#10005;</button>';
+  h+='</div></td></tr>';
+  return h;
 }
 
 function renderTabs(){
@@ -1443,7 +1519,7 @@ function renderApp(){
   // Count completed tasks for this tab
   var completedCount=0;
   getTabBuckets(tab).forEach(function(b){
-    ((state.tasks[tab]||{})[b]||[]).forEach(function(t){if(t.status==='Complete')completedCount++;});
+    flattenBucketTasks(tab,b).forEach(function(ref){if(ref.task.status==='Complete')completedCount++;});
   });
   var showComp=!!showCompleted[tab];
   h+='<div class="filter-bar">';
@@ -1461,10 +1537,8 @@ function renderApp(){
   getTabBuckets(tab).forEach(function(bucket){
     var allBucketTasks=(state.tasks[tab][bucket]||[]);
     var raw=allBucketTasks.filter(function(t){
-      if(t.status==='Complete'&&!showCompleted[tab]&&!curFilter) return false;
-      var q=curSearch.toLowerCase();
-      var mq=!q||[t.customer,t.notes,t.owner,t.support,t.status,t.meetingNotes,t.milestone].some(function(v){return String(v||'').toLowerCase().indexOf(q)>-1;});
-      return mq&&(!curFilter||t.status===curFilter)&&(!curPriFilter||t.priority===curPriFilter);
+      if(!t.subtasks)t.subtasks=[];
+      return taskMatchesMainFilters(t)||taskHasMatchingSubtask(t);
     });
     var tasks=sortTasks(raw);
     var bId='bkt_'+bucket.replace(/[^a-zA-Z0-9]/g,'_');
@@ -1490,37 +1564,23 @@ function renderApp(){
             if(showPeople)h+='<th data-sort="owner">Owner / Support</th>';
       h+='<th style="width:80px"></th></tr></thead><tbody>';
       tasks.forEach(function(t){
-        h+='<tr data-task-id="'+t.id+'" data-bucket="'+esc(bucket)+'" data-customer="'+esc(t.customer||'')+'">';
-        cols.forEach(function(c){
-          if(c.key==='owner'||c.key==='support')return;
-          h+='<td>';
-          if(c.key==='customer')h+='<div class="cust-name">'+(t.conflict?'<span title="Merged update needs review" style="color:#b45309;font-weight:800;margin-right:5px">⚠</span>':'')+esc(t.customer||'—')+'</div>';
-          else if(c.key==='due')h+=dueBadgeWithCountdown(t.due,t.status);
-          else if(c.key==='status')h+=statusPill(t.status);
-          else if(c.key==='priority')h+=priTag(t.priority);
-          else if(c.key==='meetingNotes'&&t.meetingNotes)h+='<div class="sub-note">'+esc(t.meetingNotes)+'</div>';
-          else if(c.key==='milestone'&&t.milestone)h+='<div style="font-size:11px;color:var(--blue)">'+esc(t.milestone)+'</div>';
-          else h+='<div style="line-height:1.5">'+esc(t[c.key]||'')+'</div>';
-          h+='</td>';
+        h+=renderTaskRow(t,bucket,cols,showPeople,false,null);
+        (t.subtasks||[]).filter(function(st){return taskMatchesMainFilters(st);}).forEach(function(st){
+          h+=renderTaskRow(st,bucket,cols,showPeople,true,t.id);
         });
-        if(showPeople)h+='<td>'+peopleCell(t.owner,t.support)+'</td>';
-        h+='<td><div class="row-acts">';
-        h+='<button class="icon-btn" title="History" data-action="history" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#128203;</button>';
-        h+='<button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#9998;</button>';
-        h+='<button class="icon-btn del" title="Delete" data-action="delete" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#10005;</button>';
-        h+='</div></td></tr>';
       });
       h+='</tbody></table></div>';
     }
 
     // Completed tasks section within each bucket
     if(showCompleted[tab]){
-      var completedHere=(state.tasks[tab][bucket]||[]).filter(function(t){return t.status==='Complete';});
+      var completedHere=flattenBucketTasks(tab,bucket).filter(function(ref){return ref.task.status==='Complete';});
       if(completedHere.length>0){
         h+='<div style="background:var(--surf2);border-top:1px solid var(--bdr);padding:0">';
         h+='<div style="padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txl)">Completed ('+completedHere.length+')</div>';
         h+='<div style="overflow-x:auto"><table class="task-table" style="opacity:.6"><tbody>';
-        completedHere.forEach(function(t){
+        completedHere.forEach(function(ref){
+          var t=ref.task;
           var daysAgo=t.completedAt?completedDaysAgo(t.completedAt):0;
           var agoLabel=daysAgo===0?'today':daysAgo===1?'yesterday':daysAgo+'d ago';
           h+='<tr style="background:var(--surf2)">';
@@ -1529,7 +1589,7 @@ function renderApp(){
           h+='<td>'+(t.owner?'<span class="owner-chip" style="opacity:.6">'+esc(t.owner)+'</span>':'')+'</td>';
           h+='<td><span class="status-pill s-complete">Complete</span></td>';
           h+='<td style="font-size:11px;color:var(--txl)">'+agoLabel+'</td>';
-          h+='<td><div class="row-acts"><button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'">&#9998;</button></div></td>';
+          h+='<td><div class="row-acts"><button class="icon-btn" title="Edit" data-action="edit" data-id="'+t.id+'" data-bucket="'+esc(bucket)+'"'+(ref.parentId?' data-parent-id="'+ref.parentId+'"':'')+'>&#9998;</button></div></td>';
           h+='</tr>';
         });
         h+='</tbody></table></div></div>';
@@ -1591,9 +1651,11 @@ function renderApp(){
       var action=this.getAttribute('data-action');
       var id=this.getAttribute('data-id');
       var bucket=this.getAttribute('data-bucket');
-      if(action==='history')showHistory(id,bucket);
-      else if(action==='edit')openEditTask(id,bucket);
-      else if(action==='delete')deleteTask(id,bucket);
+      var parentId=this.getAttribute('data-parent-id')||null;
+      if(action==='history')showHistory(id,bucket,parentId);
+      else if(action==='edit')openEditTask(id,bucket,parentId);
+      else if(action==='delete')deleteTask(id,bucket,parentId);
+      else if(action==='subtask')openAddTask(bucket,id);
     });
   });
 }
@@ -1628,29 +1690,34 @@ function buildTaskForm(tab,task){
   });
   return h+'</div>';
 }
-function openAddTask(bucket){
-  editingTask=null;editingBucket=bucket;
-  document.getElementById('modalTitle').textContent='Add Task \u2014 '+bucket;
+function openAddTask(bucket,parentId){
+  editingTask=null;editingBucket=bucket;editingParentTask=parentId||null;
+  var title='Add Task — '+bucket;
+  if(editingParentTask){
+    var pref=getTaskRef(editingParentTask,bucket,null);
+    title='Add Subtask — '+(pref&&pref.task&&pref.task.customer?pref.task.customer:bucket);
+  }
+  document.getElementById('modalTitle').textContent=title;
   document.getElementById('taskFormFields').innerHTML=buildTaskForm(state.activeTab,null);
   document.getElementById('taskModal').classList.add('open');
   getTabCols(state.activeTab).forEach(function(c){if(c.type==='ac')makeAC(document.getElementById('tf_'+c.key));});
 }
-function openEditTask(id,bucket){
-  var arr=(state.tasks[state.activeTab]||{})[bucket]||[],found=null;
-  for(var i=0;i<arr.length;i++){if(arr[i].id===id){found=arr[i];break;}}
-  if(!found)return;
-  editingTask=id;editingBucket=bucket;
-  document.getElementById('modalTitle').textContent='Edit Task';
-  document.getElementById('taskFormFields').innerHTML=buildTaskForm(state.activeTab,found);
+function openEditTask(id,bucket,parentId){
+  var ref=getTaskRef(id,bucket,parentId||null);
+  if(!ref)return;
+  editingTask=id;editingBucket=bucket;editingParentTask=parentId||null;
+  document.getElementById('modalTitle').textContent=editingParentTask?'Edit Subtask':'Edit Task';
+  document.getElementById('taskFormFields').innerHTML=buildTaskForm(state.activeTab,ref.task);
   document.getElementById('taskModal').classList.add('open');
   getTabCols(state.activeTab).forEach(function(c){if(c.type==='ac')makeAC(document.getElementById('tf_'+c.key));});
 }
 function saveTask(){
   var tab=state.activeTab,cols=getTabCols(tab),isNew=!editingTask;
-  var existing=null;
-  if(!isNew){var a0=(state.tasks[tab][editingBucket]||[]);for(var i=0;i<a0.length;i++){if(a0[i].id===editingTask){existing=a0[i];break;}}}
+  var existing=null,ref=null;
+  if(!isNew){ref=getTaskRef(editingTask,editingBucket,editingParentTask);if(ref)existing=ref.task;}
   var createdAt=nowTs();
-  var task={id:editingTask||uid(),changelog:existing?(existing.changelog||[]):[{t:createdAt,ts:createdAt,msg:(currentUser?currentUser+' created task':'Task created') }],completedAt:existing?existing.completedAt:null};
+  var task={id:editingTask||uid(),changelog:existing?(existing.changelog||[]):[{t:createdAt,ts:createdAt,msg:(currentUser?currentUser+' created '+(editingParentTask?'subtask':'task'):(editingParentTask?'Subtask created':'Task created')) }],completedAt:existing?existing.completedAt:null};
+  if(!editingParentTask)task.subtasks=existing?(existing.subtasks||[]):[];
   // Saving a task resolves any prior sync conflict flags for that task.
   var changes=[], changedFields=[];
   cols.forEach(function(c){
@@ -1665,6 +1732,7 @@ function saveTask(){
       }
     }
   });
+  if(existing&&existing.conflict){delete task.conflict;delete task.conflictFields;}
   if(!isNew&&changes.length){
     var changedAt=nowTs();
     task.changelog.push({t:changedAt,ts:changedAt,fields:changedFields,msg:(currentUser?currentUser+': ':'')+changes.join(', ')});
@@ -1679,19 +1747,34 @@ function saveTask(){
   }
   if(task.changelog.length>20)task.changelog=task.changelog.slice(-20);
   ensureTab(tab);
-  if(isNew){state.tasks[tab][editingBucket].push(task);}
-  else{var a1=state.tasks[tab][editingBucket];for(var j=0;j<a1.length;j++){if(a1[j].id===editingTask){a1[j]=task;break;}}}
-  persist();closeModal('taskModal');renderApp();showToast(isNew?'Task added.':'Task updated.');
+  if(isNew){
+    if(editingParentTask){
+      var pref=getTaskRef(editingParentTask,editingBucket,null);
+      if(!pref)return showToast('Parent task not found.');
+      if(!pref.task.subtasks)pref.task.subtasks=[];
+      pref.task.subtasks.push(task);
+      pref.task.changelog=pref.task.changelog||[];
+      pref.task.changelog.push({t:nowTs(),ts:nowTs(),msg:(currentUser?currentUser+': ':'')+'Subtask added'});
+    }else{
+      state.tasks[tab][editingBucket].push(task);
+    }
+  }
+  else if(ref){ref.arr[ref.index]=task;}
+  persist();closeModal('taskModal');renderApp();showToast(isNew?(editingParentTask?'Subtask added.':'Task added.'):(editingParentTask?'Subtask updated.':'Task updated.'));
 }
-function deleteTask(id,bucket){
-  if(!confirm('Delete this task?'))return;
-  state.tasks[state.activeTab][bucket]=(state.tasks[state.activeTab][bucket]||[]).filter(function(x){return x.id!==id;});
-  persist();renderApp();showToast('Task deleted.');
+function deleteTask(id,bucket,parentId){
+  var ref=getTaskRef(id,bucket,parentId||null);
+  if(!ref)return;
+  var label=parentId?'subtask':'task';
+  var extra=(!parentId&&ref.task.subtasks&&ref.task.subtasks.length)?' and its '+ref.task.subtasks.length+' subtask(s)':'';
+  if(!confirm('Delete this '+label+extra+'?'))return;
+  ref.arr.splice(ref.index,1);
+  persist();renderApp();showToast(parentId?'Subtask deleted.':'Task deleted.');
 }
-function showHistory(id,bucket){
-  var arr=(state.tasks[state.activeTab]||{})[bucket]||[],found=null;
-  for(var i=0;i<arr.length;i++){if(arr[i].id===id){found=arr[i];break;}}
-  if(!found)return;
+function showHistory(id,bucket,parentId){
+  var ref=getTaskRef(id,bucket,parentId||null);
+  if(!ref)return;
+  var found=ref.task;
   var log=found.changelog||[];
   var h=log.length?'':'<p style="color:var(--txl);font-size:13px">No history yet.</p>';
   log.slice().reverse().forEach(function(e){h+='<div class="changelog-entry"><span class="changelog-time">'+esc(e.t)+'</span><span>'+esc(e.msg)+'</span></div>';});
@@ -1761,7 +1844,7 @@ function updateMyTasksTable(){
   results.forEach(function(r){
     var t=r.task;
     h+='<tr><td><span class="pm-badge">'+esc(r.pm)+'</span></td><td><span style="font-size:11px;color:var(--txm)">'+esc(r.bucket)+'</span></td>';
-    h+='<td><div class="cust-name">'+esc(t.customer||'—')+'</div>'+(t.notes?'<div class="sub-note">'+esc(t.notes.slice(0,70))+'</div>':'')+'</td>';
+    h+='<td><div class="cust-name">'+(r.isSubtask?'<span class="subtask-chip" style="margin:0 6px 0 0">Sub</span>':'')+esc(t.customer||'—')+'</div>'+(r.isSubtask&&r.parent?'<div class="sub-note">Under: '+esc(r.parent.customer||'Task')+'</div>':'')+(t.notes?'<div class="sub-note">'+esc(t.notes.slice(0,70))+'</div>':'')+'</td>';
     h+='<td><span style="font-size:11px;font-weight:700;color:'+(r.role==='Owner'?'var(--gig)':'var(--blue)')+'">'+esc(r.role)+'</span></td>';
     h+='<td>'+(t.owner?'<span class="owner-chip">'+esc(t.owner)+'</span>':'<span style="color:var(--txl)">—</span>')+'</td>';
     h+='<td>'+(t.support?'<span class="support-chip">'+esc(t.support)+'</span>':'<span style="color:var(--txl)">—</span>')+'</td>';
@@ -1773,10 +1856,11 @@ function updateMyTasksTable(){
 function exportCSV(tab){
   ensureTab(tab);
   var cols=getTabCols(tab).filter(function(c){return c.visible;});
-  var rows=[['Bucket'].concat(cols.map(function(c){return c.label;}))];
+  var rows=[['Bucket','Task Type','Parent Task'].concat(cols.map(function(c){return c.label;}))];
   getTabBuckets(tab).forEach(function(b){
     (state.tasks[tab][b]||[]).forEach(function(t){
-      var row=[b];cols.forEach(function(c){row.push(String(t[c.key]||'').replace(/\n/g,' '));});rows.push(row);
+      var row=[b,'Task',''];cols.forEach(function(c){row.push(String(t[c.key]||'').replace(/\n/g,' '));});rows.push(row);
+      (t.subtasks||[]).forEach(function(st){var srow=[b,'Subtask',t.customer||''];cols.forEach(function(c){srow.push(String(st[c.key]||'').replace(/\n/g,' '));});rows.push(srow);});
     });
   });
   var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
@@ -1787,8 +1871,8 @@ function exportCSV(tab){
 }
 function exportAllCSV(){
   var all=getAllTasks();
-  var rows=[['PM Tab','Bucket','Customer','Details','Owner','Supporting','Priority','Status','Due Date','Next Milestone','Meeting Notes']];
-  all.forEach(function(r){var t=r.task;rows.push([r.pm,r.bucket,t.customer||'',t.notes||'',t.owner||'',t.support||'',t.priority||'',t.status||'',t.due||'',t.milestone||'',t.meetingNotes||'']);});
+  var rows=[['PM Tab','Bucket','Task Type','Parent Task','Customer','Details','Owner','Supporting','Priority','Status','Due Date','Next Milestone','Meeting Notes']];
+  all.forEach(function(r){var t=r.task;rows.push([r.pm,r.bucket,r.isSubtask?'Subtask':'Task',r.parent?(r.parent.customer||''):'',t.customer||'',t.notes||'',t.owner||'',t.support||'',t.priority||'',t.status||'',t.due||'',t.milestone||'',t.meetingNotes||'']);});
   var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/\n/g,' ').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob=new Blob([csv],{type:'text/csv'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -1920,7 +2004,7 @@ function getAllTasks(){
   var all=[];
   state.tabs.forEach(function(tab){
     getTabBuckets(tab).forEach(function(bucket){
-      ((state.tasks[tab]||{})[bucket]||[]).forEach(function(t){all.push({pm:tab,bucket:bucket,task:t});});
+      flattenBucketTasks(tab,bucket).forEach(function(ref){all.push({pm:tab,bucket:bucket,task:ref.task,isSubtask:!!ref.parentId,parent:ref.parent});});
     });
   });
   return all;
@@ -2019,7 +2103,7 @@ function refreshDashTable(){
     filtered.forEach(function(r){
       var t=r.task;
       h+='<tr><td><span class="pm-badge">'+esc(r.pm)+'</span></td><td><span style="font-size:11px;color:var(--txm)">'+esc(r.bucket)+'</span></td>';
-      h+='<td><div class="cust-name">'+esc(t.customer||'—')+'</div>'+(t.notes?'<div class="sub-note">'+esc(t.notes.slice(0,70))+'</div>':'')+'</td>';
+      h+='<td><div class="cust-name">'+(r.isSubtask?'<span class="subtask-chip" style="margin:0 6px 0 0">Sub</span>':'')+esc(t.customer||'—')+'</div>'+(r.isSubtask&&r.parent?'<div class="sub-note">Under: '+esc(r.parent.customer||'Task')+'</div>':'')+(t.notes?'<div class="sub-note">'+esc(t.notes.slice(0,70))+'</div>':'')+'</td>';
       h+='<td>'+(t.owner?'<span class="owner-chip">'+esc(t.owner)+'</span>':'—')+'</td>';
       h+='<td>'+(t.support?'<span class="support-chip">'+esc(t.support)+'</span>':'—')+'</td>';
       h+='<td>'+priTag(t.priority)+'</td><td>'+statusPill(t.status)+'</td><td>'+dueBadge(t.due)+'</td></tr>';
@@ -2370,7 +2454,7 @@ html+='* {-webkit-print-color-adjust:exact!important;print-color-adjust:exact!im
   win.document.close();
 }
 
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');if(id==='taskModal'){editingTask=null;editingBucket=null;editingParentTask=null;}}
 function showToast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2500);}
 ['taskModal','tabModal','cfgModal','histModal'].forEach(function(id){
   document.getElementById(id).addEventListener('click',function(e){if(e.target.id===id)closeModal(id);});
@@ -2395,34 +2479,39 @@ function isMobileActionSheetMode() {
 // ── ACTION SHEET (mobile) ─────────────────────────────────────────
 var _asTaskId = null;
 var _asBucket = null;
+var _asParentId = null;
 
-function openActionSheet(taskId, bucket, customerName) {
+function openActionSheet(taskId, bucket, customerName, parentId) {
   _asTaskId = taskId;
   _asBucket = bucket;
+  _asParentId = parentId || null;
   document.getElementById('actionSheetTitle').textContent = customerName || 'Task Actions';
   document.getElementById('actionSheet').classList.add('open');
 }
 function closeActionSheet() {
   document.getElementById('actionSheet').classList.remove('open');
-  _asTaskId = null; _asBucket = null;
+  _asTaskId = null; _asBucket = null; _asParentId = null;
 }
 function actionSheetEdit() {
   var taskId = _asTaskId;
   var bucket = _asBucket;
+  var parentId = _asParentId;
   closeActionSheet();
-  if (taskId && bucket) openEditTask(taskId, bucket);
+  if (taskId && bucket) openEditTask(taskId, bucket, parentId);
 }
 function actionSheetHistory() {
   var taskId = _asTaskId;
   var bucket = _asBucket;
+  var parentId = _asParentId;
   closeActionSheet();
-  if (taskId && bucket) showHistory(taskId, bucket);
+  if (taskId && bucket) showHistory(taskId, bucket, parentId);
 }
 function actionSheetDelete() {
   var taskId = _asTaskId;
   var bucket = _asBucket;
+  var parentId = _asParentId;
   closeActionSheet();
-  if (taskId && bucket) deleteTask(taskId, bucket);
+  if (taskId && bucket) deleteTask(taskId, bucket, parentId);
 }
 
 // ── WIRE ROW INTERACTIONS after renderApp ─────────────────────────
@@ -2432,20 +2521,21 @@ function wireRowInteractions() {
     var taskId = row.getAttribute('data-task-id');
     var bucket = row.getAttribute('data-bucket');
     var customer = row.getAttribute('data-customer');
+    var parentId = row.getAttribute('data-parent-id') || null;
     if (!taskId || !bucket) return;
 
     // Single tap opens the action sheet only on true mobile/tablet layouts.
     row.addEventListener('click', function(e) {
       if (!isMobileActionSheetMode()) return;
       if (e.target.closest('[data-action]') || e.target.closest('.row-acts')) return;
-      openActionSheet(taskId, bucket, customer);
+      openActionSheet(taskId, bucket, customer, parentId);
     });
 
     // Desktop and hybrid Windows devices keep the safer double-click edit behavior.
     row.addEventListener('dblclick', function(e) {
       if (isMobileActionSheetMode()) return;
       if (e.target.closest('[data-action]') || e.target.closest('.row-acts')) return;
-      openEditTask(taskId, bucket);
+      openEditTask(taskId, bucket, parentId);
     });
   });
 }
